@@ -14,7 +14,6 @@ An end-to-end AI customer service & after-sales support platform featuring strea
   - **RAG Knowledge Base**: PostgreSQL + `pgvector` + Drizzle ORM (`NewBackend/src/rag` & `NewBackend/建立rag`)
   - **ERP Integration**: In-process `netsuite-mcp` layer for SuiteQL queries and Support Case creation (`get_product_info`, `check_order_status`, `start_warranty_claim`, `check_case_status`)
   - **Voice Pipeline**: DashScope Paraformer real-time ASR, Edge TTS streaming over WebSocket, and Gemini Live real-time voice translation for human calls
-- **`docs/`** — Design specifications and technical documentation
 
 ## Quick Start
 
