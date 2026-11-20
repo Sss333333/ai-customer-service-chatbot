@@ -21,7 +21,7 @@ AI 客户服务 Agent 云端后端架构。支持 **OpenRouter LLM + Vercel AI S
 ## 本地快速启动
 
 ```bash
-cd backend
+cd Backend
 npm install
 npm run dev
 ```
@@ -38,7 +38,7 @@ npm run dev
 确保本地已安装 [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) 且已配置好 AWS 凭证：
 
 ```bash
-cd backend
+cd Backend
 
 # 1. 编译构建
 sam build
