@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 28% 98%;
+    --foreground: 40 10% 12%;
+
+    --card: 40 28% 98%;
+    --card-foreground: 40 10% 12%;
+
+    --popover: 40 28% 98%;
+    --popover-foreground: 40 10% 12%;
+
+    --primary: 164 33% 20%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 40 19% 92%;
+    --secondary-foreground: 40 10% 12%;
+
+    --muted: 40 19% 92%;
+    --muted-foreground: 34 6% 46%;
+
+    --accent: 40 19% 92%;
+    --accent-foreground: 40 10% 12%;
+
+    --destructive: 7 59% 34%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 37 18% 84%;
+    --input: 37 18% 84%;
+    --ring: 164 33% 20%;
+
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+    color-scheme: light;
+  }
+
+  body {
+    @apply m-0 bg-background text-foreground antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+}
+
+/* Streamdown Markdown content styles inside message bubbles */
+.msg-bubble p {
+  @apply m-0;
+}
+
+.msg-bubble p + p {
+  @apply mt-1.5;
+}
+
+.msg-bubble h1,
+.msg-bubble h2,
+.msg-bubble h3,
+.msg-bubble h4,
+.msg-bubble h5,
+.msg-bubble h6 {
+  @apply my-1 text-[15px] font-semibold;
+}
+
+.msg-bubble ul,
+.msg-bubble ol {
+  @apply my-1 pl-5;
+}
+
+.msg-bubble ul {
+  @apply list-disc;
+}
+
+.msg-bubble ol {
+  @apply list-decimal;
+}
+
+.msg-bubble li {
+  @apply my-0.5;
+}
+
+.msg-bubble strong {
+  @apply font-bold text-black;
+}
+
+.msg-user strong {
+  @apply text-white;
+}
+
+.msg-bubble code {
+  @apply rounded bg-black/[0.06] px-1.5 py-0.5 font-mono text-[13px];
+}
+
+.msg-user code {
+  @apply bg-white/[0.18];
+}
+
+.msg-bubble table {
+  @apply my-1.5 block overflow-x-auto border-collapse text-[13px];
+}
+
+.msg-bubble th,
+.msg-bubble td {
+  @apply whitespace-nowrap border border-black/10 px-2 py-1 text-left;
+}
+
+.msg-bubble th {
+  @apply bg-black/[0.04] font-semibold;
+}
+
+.msg-bubble a {
+  @apply underline underline-offset-2;
+}
+
+.msg-assistant a {
+  @apply font-semibold text-[#23453c];
+}

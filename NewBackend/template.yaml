@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  warranty-node
+  AI Customer Service Backend (OpenRouter + S3)
+
+Globals:
+  Function:
+    # 必须 > openrouter.js 的 CHAT_DEADLINE_MS(25s)，且 < API Gateway HTTP API 的 30s 上限
+    Timeout: 29
+    MemorySize: 512
+    Runtime: nodejs20.x
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+        OPENROUTER_MODEL: !Ref OpenRouterModel
+        OPENROUTER_API_KEY: !Ref OpenRouterApiKey
+        S3_BUCKET_NAME: !Ref AttachmentsBucket
+
+Parameters:
+  OpenRouterModel:
+    Type: String
+    Default: 'nvidia/nemotron-3-ultra-550b-a55b:free'
+    Description: OpenRouter AI Model ID
+  OpenRouterApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: OpenRouter API Key (sk-or-v1-...)
+
+Resources:
+  # HTTP API Gateway (v2) with full CORS support
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        MaxAge: 600
+
+  # S3 Bucket for photo & video uploads
+  AttachmentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "warranty-node-attachments-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3600
+
+  # Main Serverless Lambda Function
+  WarrantyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: src/lambda.handler
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref AttachmentsBucket
+      Events:
+        ChatApi:
+          Type: HttpApi
+          Properties:
+            Path: /chat
+            Method: POST
+            ApiId: !Ref HttpApi
+        UploadUrlApi:
+          Type: HttpApi
+          Properties:
+            Path: /upload-url
+            Method: POST
+            ApiId: !Ref HttpApi
+        HealthApi:
+          Type: HttpApi
+          Properties:
+            Path: /health
+            Method: GET
+            ApiId: !Ref HttpApi
+        CatchAllApi:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+            ApiId: !Ref HttpApi
+
+Outputs:
+  ApiEndpoint:
+    Description: HTTP API Gateway endpoint URL
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  AttachmentsBucketName:
+    Description: S3 Bucket Name for Warranty Attachments
+    Value: !Ref AttachmentsBucket
