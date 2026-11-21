@@ -156,3 +156,53 @@ npm run dev
 - 整个 `proxy/` 目录已加入 `.gitignore`，包括 `config.yaml`、`config.example.yaml`、内核和日志，避免提交 API key 或代理订阅信息。
 - 如果这些文件曾经提交过，需要立即轮换 API key / 订阅链接并清理 git 历史。
 - CNB 工作区重启后，后台运行的 `mihomo` 不会自动恢复，需要按第 3 步重新启动。
+
+### 7. 新环境一键恢复（文件漫游）
+
+CNB 云开发环境在闲置销毁后重建时，`.gitignore` 忽略的文件**不会进入代码备份**，所以 `proxy/` 和 `Backend/.env` 都不会自动恢复。推荐把敏感文件放到 CNB 文件漫游目录，再用仓库里的脚本一键恢复。
+
+1. 在 **个人设置 → 云原生开发** 的自定义漫游路径中加入：
+
+```text
+/root/.cnb
+/root/.cnb/*
+```
+
+2. 把敏感文件保存到漫游目录（不要放进 git）：
+
+```text
+/root/.cnb/proxy-config.yaml    # Clash / Mihomo 订阅配置
+/root/.cnb/backend.env          # 只写需要恢复的 KEY=VALUE
+```
+
+`backend.env` 示例（不要填真实值到 README 或提交到仓库）：
+
+```env
+OPENROUTER_API_KEY=your-openrouter-api-key
+GEMINI_API_KEY=your-gemini-api-key
+DASHSCOPE_API_KEY=your-dashscope-api-key
+DATABASE_URL=postgresql://user:password@host:5432/db
+```
+
+3. 新环境启动后执行一键脚本：
+
+```bash
+bash /workspace/scripts/setup-proxy.sh
+```
+
+脚本会自动完成：
+
+- 下载 `mihomo` 内核（若不存在）
+- 从漫游目录复制代理配置并校验
+- 创建/补齐 `Backend/.env`
+- 启用 `HTTPS_PROXY=http://127.0.0.1:7890`
+- 后台启动 `mihomo` 并打印出口 IP
+
+4. 在另一个终端重启后端：
+
+```bash
+cd /workspace/Backend
+npm run dev
+```
+
+注意：不要用 `kill 1` 关闭开发环境，否则漫游不会保存；同时打开多个环境时，后销毁的环境漫游内容会覆盖先销毁的环境。
