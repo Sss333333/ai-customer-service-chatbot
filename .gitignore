@@ -17,6 +17,9 @@ build/
 *.log
 npm-debug.log*
 
+# Local proxy runtime & credentials
+proxy/
+
 # OS & Editor files
 .DS_Store
 Thumbs.db

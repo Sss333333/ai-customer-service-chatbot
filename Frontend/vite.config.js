@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    allowedHosts: ['5wqv5khjzb-5173.cnb.run'],
     proxy: {
       '/chat': {
         target: 'http://localhost:8080',

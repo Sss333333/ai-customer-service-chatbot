@@ -13,9 +13,9 @@ import { createTtsSideChannel, hasTtsClient } from "../audio/ttsWsServer.js";
 
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 
-// 仅在非 Lambda 环境或显式配置了代理环境变量时启用本地代理
+// 仅在显式配置了代理环境变量时启用代理
 const isLambda = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
-const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || (!isLambda ? "http://127.0.0.1:7890" : "");
+const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.ALL_PROXY || "";
 if (proxyUrl) {
   try {
     setGlobalDispatcher(new ProxyAgent(proxyUrl));

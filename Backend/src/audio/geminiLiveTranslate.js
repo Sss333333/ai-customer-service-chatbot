@@ -17,7 +17,7 @@ function getProxyAgent() {
     process.env.HTTPS_PROXY ||
     process.env.HTTP_PROXY ||
     process.env.ALL_PROXY ||
-    (!process.env.AWS_LAMBDA_FUNCTION_NAME ? "http://127.0.0.1:7890" : "");
+    "";
   if (!proxyUrl) return undefined;
   try {
     return new HttpsProxyAgent(proxyUrl);
