@@ -12,7 +12,7 @@ This document describes the product features. Setup, deployment, proxy configura
 - **RAG knowledge base** — PostgreSQL with `pgvector` and Drizzle ORM for semantic retrieval over seeded product/support documents.
 - **ERP tools** — In-process MCP-style tools for product information, order status, warranty claims, and support case lookup.
 - **Real-time voice** — DashScope Paraformer streaming ASR, Edge TTS playback, and barge-in support during AI replies.
-- **Human agent handoff** — A live call console at `/agent` with Gemini Live real-time translation for cross-language support.
+- **Human agent handoff console** — A live console at `/agent` for seamless AI-to-human transfer. Customers and agents talk in real time over WebSocket, while Gemini Live translates the conversation on the fly so each side can speak and listen in their own language. It supports true cross-language live calls without requiring a shared language.
 - **Attachments** — Image, video, and PDF upload through pre-signed S3 URLs, with a local mock mode for development.
 - **Dual runtime** — The backend runs as a local Node.js HTTP/WebSocket server or as an AWS SAM Lambda stack.
 

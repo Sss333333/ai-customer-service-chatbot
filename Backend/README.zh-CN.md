@@ -30,7 +30,7 @@ npm run dev
 | `GET /health` | 服务与模型健康检查 |
 | `WS /ws/asr` | DashScope 实时语音识别 |
 | `WS /ws/tts` | Edge TTS 流式语音播放 |
-| `WS /ws/human` | 人工客服通话，含 Gemini Live 实时翻译 |
+| `WS /ws/human` | 跨语言实时人工客服通话，Gemini Live 在通话中即时翻译 |
 
 可用脚本：
 

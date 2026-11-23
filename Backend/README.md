@@ -30,7 +30,7 @@ The server listens on `http://localhost:8080` by default.
 | `GET /health` | Service and model health check |
 | `WS /ws/asr` | DashScope real-time speech recognition |
 | `WS /ws/tts` | Edge TTS streaming playback |
-| `WS /ws/human` | Human agent call with Gemini Live translation |
+| `WS /ws/human` | Cross-language real-time human agent call with on-the-fly Gemini Live translation |
 
 Available scripts:
 

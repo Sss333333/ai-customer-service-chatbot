@@ -12,7 +12,7 @@
 - **RAG 知识库** — 使用 PostgreSQL + `pgvector` 与 Drizzle ORM，对已导入的产品/支持文档做语义检索。
 - **ERP 工具** — 通过进程内 MCP 风格工具查询产品信息、订单状态、质保报障和客服工单。
 - **实时语音** — DashScope Paraformer 流式 ASR、Edge TTS 语音播放，并支持AI回复过程中的打断。
-- **人工客服接管** — `/agent` 实时通话控制台，通过 Gemini Live 实现跨语言实时翻译。
+- **人工客服接管控制台** — `/agent` 实时通话控制台，支持 AI 对话无缝转人工。客户与人工客服通过 WebSocket 进行双向实时语音通话，Gemini Live 在通话过程中即时翻译，双方可用各自语言交流，实现真正的跨语言实时通话，无需双方使用同一种语言。
 - **附件上传** — 图片、视频和 PDF 通过 S3 预签名 URL 直传；本地开发可使用 Mock 模式。
 - **双运行模式** — 后端既可以是本地 Node.js HTTP/WebSocket 服务，也可以部署为 AWS SAM Lambda 栈。
 
