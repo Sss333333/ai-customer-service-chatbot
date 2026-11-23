@@ -206,3 +206,47 @@ npm run dev
 ```
 
 注意：不要用 `kill 1` 关闭开发环境，否则漫游不会保存；同时打开多个环境时，后销毁的环境漫游内容会覆盖先销毁的环境。
+
+### 8. CNB 自动同步到 GitHub
+
+仓库里已添加 `.cnb.yml`，使用 CNB 官方 `tencentcom/git-sync` 插件，在 `main` 分支 push 时自动同步到 GitHub。
+
+首次使用需要完成两步：
+
+1. 创建一个 **CNB 密钥仓库**，并在其中新建文件 `github-sync.yml`：
+
+```yaml
+allow_slugs:
+  - "kefu-2026/ai-customer-service-chatbot"
+allow_events:
+  - "push"
+allow_branches:
+  - "main"
+
+GITHUB_REPO_URL: "https://github.com/<用户名>/<仓库名>.git"
+GIT_USERNAME: "<GitHub 用户名>"
+GIT_ACCESS_TOKEN: "<GitHub Personal Access Token，需 repo 权限>"
+```
+
+2. 编辑根目录 `.cnb.yml`，把 `YOUR_SECRET_REPO_SLUG` 替换为你的密钥仓库 slug（形如 `用户名/仓库名`）：
+
+```yaml
+imports:
+  - https://cnb.build/YOUR_SECRET_REPO_SLUG/-/blob/main/github-sync.yml
+```
+
+3. 提交并推送到 CNB：
+
+```bash
+git add .cnb.yml
+git commit -m "chore: add github sync pipeline"
+git push origin main
+```
+
+之后每次 push 到 CNB 的 `main` 分支，都会自动同步到 GitHub。
+
+注意：
+
+- GitHub token 只能放在密钥仓库，不要写进普通仓库。
+- 当前配置 `force: false`，避免覆盖 GitHub 历史；确认要以 CNB 为准时再改为 `true`。
+- 当前只同步 `main` 分支，不推送 tags；需要 tags 时把 `push_tags` 改为 `true`。

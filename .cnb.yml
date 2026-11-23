@@ -1,0 +1,15 @@
+main:
+  push:
+    - imports:
+        - https://cnb.build/YOUR_SECRET_REPO_SLUG/-/blob/main/github-sync.yml
+      stages:
+        - name: sync to github
+          image: tencentcom/git-sync
+          settings:
+            target_url: ${GITHUB_REPO_URL}
+            auth_type: https
+            username: ${GIT_USERNAME}
+            password: ${GIT_ACCESS_TOKEN}
+            branch: main
+            push_tags: false
+            force: false
