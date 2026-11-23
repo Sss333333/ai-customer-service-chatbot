@@ -28,9 +28,9 @@ const INITIAL_GREETING = {
 const TOOL_STATUS_LABELS = {
   getInformation: 'Searching warranty knowledge base (正在检索售后知识库)…',
   get_product_info: 'Checking product info & stock (正在查询产品与库存)…',
-  check_order_status: 'Checking order status in NetSuite (正在查询订单状态)…',
+  check_order_status: 'Checking order status in ERP (正在查询订单状态)…',
   check_case_status: 'Checking support case status (正在查询工单进度)…',
-  start_warranty_claim: 'Logging support case in NetSuite (正在提交售后工单)…',
+  start_warranty_claim: 'Logging support case in ERP (正在提交售后工单)…',
 };
 
 /**
