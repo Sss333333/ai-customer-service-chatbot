@@ -8,7 +8,9 @@ import { API_BASE, uploadFile, generateCaseRef } from './utils/api';
 import { useHumanCall } from './hooks/useHumanCall';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import { useLiveCall } from './hooks/useLiveCall';
+import { useLiteAvatar } from './hooks/useLiteAvatar';
 import { VoiceInputButton } from './components/VoiceInputButton';
+import { AvatarPanel } from './components/AvatarPanel';
 import { cn } from './utils/cn';
 import './App.css';
 
@@ -126,7 +128,7 @@ export default function App() {
   const humanMode =
     humanStatus === 'ringing' || humanStatus === 'connected' ? humanStatus : 'ai';
 
-  // 语音播放与自动朗读控制 Hook（走 /ws/tts 旁路）
+  // 语音播放与自动朗读控制 Hook（走 /ws/tts 旁路，数字人未连接时自动兜底）
   const {
     autoSpeak,
     isPlaying,
@@ -135,14 +137,26 @@ export default function App() {
     stop: stopAudio,
   } = useAudioPlayer({ sessionId: caseRef.current });
 
+  // 左侧 LiteAvatar 数字人 WebRTC Hook（桌面端非 embed 自动尝试连接，失败则静默降级）
+  const avatar = useLiteAvatar({
+    sessionId: caseRef.current,
+    autoConnect: !isEmbed,
+  });
+
   const autoSpeakRef = useRef(autoSpeak);
   autoSpeakRef.current = autoSpeak;
+  const avatarEnabledRef = useRef(false);
+  avatarEnabledRef.current = avatar.isConnected && autoSpeak;
 
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: `${API_BASE}/chat`,
-        body: () => ({ caseRef: caseRef.current, autoSpeak: autoSpeakRef.current }),
+        body: () => ({
+          caseRef: caseRef.current,
+          autoSpeak: autoSpeakRef.current,
+          avatarEnabled: avatarEnabledRef.current,
+        }),
       }),
     []
   );
@@ -161,8 +175,11 @@ export default function App() {
 
   const handleToggleAutoSpeak = useCallback(() => {
     stopAudio();
+    avatar.interrupt();
     toggleAutoSpeak();
-  }, [stopAudio, toggleAutoSpeak]);
+  }, [avatar, stopAudio, toggleAutoSpeak]);
+
+  const effectiveIsPlaying = avatar.isConnected ? avatar.isSpeaking : isPlaying;
 
   // 实时语音通话（常开麦克风 + VAD 自动断句 + 开口打断 AI）
   const {
@@ -173,15 +190,17 @@ export default function App() {
     startCall,
     endCall,
   } = useLiveCall({
-    isAiBusy: status === 'streaming' || status === 'submitted' || isPlaying,
+    isAiBusy: status === 'streaming' || status === 'submitted' || effectiveIsPlaying,
     onInterrupt: () => {
       stopAudio();
+      avatar.interrupt();
       if (status === 'streaming' || status === 'submitted') {
         stop();
       }
     },
     onUtterance: (text) => {
       setLocalError(null);
+      avatar.unlockAudio();
       sendMessage({ text });
     },
   });
@@ -190,11 +209,13 @@ export default function App() {
     if (isCallActive) {
       endCall();
       stopAudio();
+      avatar.interrupt();
     } else {
       setAutoSpeak(true);
+      avatar.unlockAudio();
       await startCall();
     }
-  }, [endCall, isCallActive, setAutoSpeak, startCall, stopAudio]);
+  }, [avatar, endCall, isCallActive, setAutoSpeak, startCall, stopAudio]);
 
   // 计算当前正在执行中的工具名称
   const currentToolCall = useMemo(() => {
@@ -267,6 +288,7 @@ export default function App() {
     if (humanMode === 'ai') {
       if (isCallActive) endCall();
       stopAudio();
+      avatar.interrupt();
       const historySnapshot = messages
         .map((m) => {
           const text = (Array.isArray(m.parts) ? m.parts : [])
@@ -283,7 +305,7 @@ export default function App() {
     } else {
       hangupHumanCall();
     }
-  }, [endCall, hangupHumanCall, humanMode, isCallActive, messages, startHumanCall, stopAudio]);
+  }, [avatar, endCall, hangupHumanCall, humanMode, isCallActive, messages, startHumanCall, stopAudio]);
 
   function onSubmit(e) {
     e.preventDefault();
@@ -302,6 +324,7 @@ export default function App() {
     if (isAwaitingResponse) return;
     setLocalError(null);
     setInput('');
+    avatar.unlockAudio();
     sendMessage({ text });
   }
 
@@ -365,6 +388,27 @@ export default function App() {
         isEmbed ? 'bg-[#fbfaf7]' : 'bg-[#eceae4]'
       )}
     >
+      {!isEmbed && (
+        <AvatarPanel
+          status={avatar.status}
+          isConnected={avatar.isConnected}
+          isSpeaking={avatar.isSpeaking}
+          isMuted={avatar.isMuted}
+          needsAudioUnlock={avatar.needsAudioUnlock}
+          error={avatar.error}
+          videoRef={avatar.videoRef}
+          onConnect={avatar.connect}
+          onDisconnect={avatar.disconnect}
+          onToggleMute={avatar.toggleMute}
+          onUnlockAudio={avatar.unlockAudio}
+          isAwaitingResponse={isAwaitingResponse}
+          currentToolLabel={currentToolCall ? TOOL_STATUS_LABELS[currentToolCall] : null}
+          isCallActive={isCallActive}
+          callState={callState}
+          humanMode={humanMode}
+        />
+      )}
+
       <div
         className={cn(
           'flex h-screen w-full flex-col bg-[#fbfaf7] box-border',
@@ -737,7 +781,7 @@ export default function App() {
                     : "正在听您说话…"
                   : callState === "finalizing"
                     ? "正在识别发送…"
-                    : isPlaying || isAwaitingResponse
+                    : effectiveIsPlaying || isAwaitingResponse
                       ? "Nova 回复中（开口可随时打断）"
                       : "实时通话中 · 请直接说话"}
               </span>

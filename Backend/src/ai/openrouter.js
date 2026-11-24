@@ -56,7 +56,11 @@ async function toAiSdkModelMessages(messages) {
  * @param {string} caseRef - 工单会话引用号
  * @returns {Promise<Response>} - AI SDK UIMessageStream Response
  */
-export async function streamChatWithOpenRouter(messages, caseRef, { autoSpeak = false } = {}) {
+export async function streamChatWithOpenRouter(
+  messages,
+  caseRef,
+  { autoSpeak = false, avatarEnabled = false } = {}
+) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     throw new Error("OPENROUTER_API_KEY is not configured in environment variables.");
@@ -100,9 +104,11 @@ export async function streamChatWithOpenRouter(messages, caseRef, { autoSpeak = 
     tools: result.tools
   });
 
-  // WebSocket 旁路：开启自动朗读且前端已连上 /ws/tts 时，后端直接切句并推送音频帧
-  if (autoSpeak && caseRef && hasTtsClient(caseRef)) {
-    const sideChannel = createTtsSideChannel(caseRef);
+  // 语音旁路：开启数字人或自动朗读时，后端直接切句合成并推送到 AvatarService 或 /ws/tts
+  const useAvatar = Boolean(avatarEnabled);
+  const shouldSpeak = Boolean(caseRef) && (useAvatar || (autoSpeak && hasTtsClient(caseRef)));
+  if (shouldSpeak) {
+    const sideChannel = createTtsSideChannel(caseRef, { useAvatar });
     if (sideChannel) {
       uiStream = uiStream.pipeThrough(
         new TransformStream({

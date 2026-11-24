@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiteAvatar Phase 1 验证页</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #eceae4; color: #211f1b;
+      display: flex; justify-content: center;
+    }
+    .wrap {
+      width: 100%; max-width: 920px;
+      display: grid; grid-template-columns: 380px 1fr; gap: 20px;
+    }
+    .card {
+      min-width: 0;
+      background: #fbfaf7; border: 1px solid #ddd8d0; border-radius: 14px;
+      padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .video-box {
+      position: relative; width: 100%; aspect-ratio: 3 / 4;
+      background: #eef1f5; border-radius: 10px; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: center top;
+    }
+    .badge {
+      position: absolute; top: 10px; left: 10px;
+      padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+      background: rgba(0, 0, 0, 0.6); color: #fff;
+    }
+    .badge.speaking { background: #23453c; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    input[type="text"] {
+      flex: 1; padding: 8px 10px; border-radius: 8px;
+      border: 1px solid #d5cfc6; background: #fff; font-size: 14px;
+    }
+    button {
+      padding: 8px 14px; border-radius: 8px; border: 1px solid #23453c;
+      background: #23453c; color: #fff; font-size: 13px; cursor: pointer;
+    }
+    button.secondary { background: #fff; color: #23453c; }
+    button.danger { background: #b43728; border-color: #b43728; }
+    button:disabled { opacity: 0.45; cursor: default; }
+    pre {
+      margin: 0; flex: 1; min-height: 280px; max-height: 440px; overflow: auto;
+      background: #1e1e1c; color: #e5e2dc; padding: 12px; border-radius: 10px;
+      font-size: 12px; line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="video-box">
+        <video id="avatarVideo" autoplay playsinline></video>
+        <div id="stateBadge" class="badge">未连接</div>
+      </div>
+      <div class="row">
+        <input id="sessionInput" type="text" value="test1" placeholder="session_id (如 caseRef)" />
+        <button id="connectBtn">连接 WebRTC</button>
+        <button id="disconnectBtn" class="secondary" disabled>断开</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0;font-size:16px;">阶段一：ExternalAudioFeed 验证控制台</h3>
+      <div class="row">
+        <input id="fileInput" type="file" accept="audio/*" />
+        <button id="sendFileBtn" disabled>推送所选音频</button>
+      </div>
+      <div class="row">
+        <button id="sendToneBtn" class="secondary" disabled>推送 2 秒测试语音(PCM)</button>
+        <button id="interruptBtn" class="danger" disabled>立即打断 (Interrupt)</button>
+        <button id="clearLogBtn" class="secondary">清空日志</button>
+      </div>
+      <pre id="logBox"></pre>
+    </div>
+  </div>
+
+  <script>
+    const videoEl = document.getElementById('avatarVideo');
+    const stateBadge = document.getElementById('stateBadge');
+    const sessionInput = document.getElementById('sessionInput');
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const fileInput = document.getElementById('fileInput');
+    const sendFileBtn = document.getElementById('sendFileBtn');
+    const sendToneBtn = document.getElementById('sendToneBtn');
+    const interruptBtn = document.getElementById('interruptBtn');
+    const clearLogBtn = document.getElementById('clearLogBtn');
+    const logBox = document.getElementById('logBox');
+
+    let pc = null;
+    let dc = null;
+    let feedWs = null;
+    let speechSeq = 0;
+
+    function log(msg) {
+      const ts = new Date().toLocaleTimeString();
+      logBox.textContent += `[${ts}] ${msg}\n`;
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function setBadge(text, speaking = false) {
+      stateBadge.textContent = text;
+      stateBadge.classList.toggle('speaking', speaking);
+    }
+
+    function setConnectedUi(connected) {
+      connectBtn.disabled = connected;
+      disconnectBtn.disabled = !connected;
+      sendFileBtn.disabled = !connected;
+      sendToneBtn.disabled = !connected;
+      interruptBtn.disabled = !connected;
+      sessionInput.disabled = connected;
+    }
+
+    function waitIceGathering(peer) {
+      return new Promise((resolve) => {
+        if (peer.iceGatheringState === 'complete') return resolve();
+        const timer = setTimeout(resolve, 2500);
+        const onChange = () => {
+          if (peer.iceGatheringState === 'complete') {
+            clearTimeout(timer);
+            peer.removeEventListener('icegatheringstatechange', onChange);
+            resolve();
+          }
+        };
+        peer.addEventListener('icegatheringstatechange', onChange);
+      });
+    }
+
+    async function connect() {
+      const sessionId = sessionInput.value.trim() || 'test1';
+      setBadge('连接中...');
+      log(`开始连接 WebRTC, session_id=${sessionId}`);
+
+      let rtcConfig = {};
+      try {
+        const cfgRes = await fetch('/openavatarchat/initconfig');
+        if (cfgRes.ok) {
+          const cfg = await cfgRes.json();
+          if (cfg.rtc_configuration) rtcConfig = cfg.rtc_configuration;
+        }
+      } catch (e) {
+        log(`读取 initconfig 失败，使用默认配置: ${e.message}`);
+      }
+
+      pc = new RTCPeerConnection(rtcConfig);
+      const remoteStream = new MediaStream();
+      videoEl.srcObject = remoteStream;
+
+      pc.ontrack = (ev) => {
+        log(`收到远端轨道: ${ev.track.kind}`);
+        remoteStream.addTrack(ev.track);
+        videoEl.play().catch((err) => log(`video.play() 提示: ${err.message}`));
+      };
+
+      pc.onconnectionstatechange = () => {
+        log(`RTCPeerConnection 状态: ${pc.connectionState}`);
+        if (pc.connectionState === 'connected') {
+          setBadge('待机中');
+          setConnectedUi(true);
+          connectFeedWs(sessionId);
+        } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          setBadge('已断开');
+          setConnectedUi(false);
+        }
+      };
+
+      dc = pc.createDataChannel('text');
+      dc.onopen = () => log('DataChannel 已打开');
+      dc.onmessage = (ev) => {
+        log(`DataChannel <- ${ev.data}`);
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg?.header?.name === 'ChatSignal' && msg?.payload?.stream_type === 'client_playback') {
+            const sig = msg.payload.type;
+            if (sig === 'stream_begin') setBadge('说话中', true);
+            else if (sig === 'stream_end' || sig === 'stream_cancel') setBadge('待机中', false);
+          }
+        } catch {}
+      };
+
+      // fastrtc send-receive 模式需要客户端附带空音视频轨来触发服务端建会话（无需麦克风/摄像头权限）
+      const silentCtx = new AudioContext();
+      const silentDst = silentCtx.createMediaStreamDestination();
+      silentDst.stream.getAudioTracks().forEach((t) => pc.addTrack(t, silentDst.stream));
+      const blankCanvas = document.createElement('canvas');
+      blankCanvas.width = 16;
+      blankCanvas.height = 16;
+      const blankStream = blankCanvas.captureStream(1);
+      blankStream.getVideoTracks().forEach((t) => pc.addTrack(t, blankStream));
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await waitIceGathering(pc);
+
+      const res = await fetch('/webrtc/offer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sdp: pc.localDescription.sdp,
+          type: pc.localDescription.type,
+          webrtc_id: sessionId,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(`/webrtc/offer HTTP ${res.status}: ${await res.text()}`);
+      }
+      const answer = await res.json();
+      await pc.setRemoteDescription(answer);
+      log('WebRTC Offer/Answer 完成');
+    }
+
+    function connectFeedWs(sessionId) {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const url = `${proto}//${location.host}/ws/avatar-feed/${encodeURIComponent(sessionId)}`;
+      feedWs = new WebSocket(url);
+      feedWs.onopen = () => {
+        log(`Feed WS 已连接: ${url}`);
+        feedWs.send(JSON.stringify({ type: 'ping' }));
+      };
+      feedWs.onmessage = (ev) => log(`Feed WS <- ${ev.data}`);
+      feedWs.onclose = () => log('Feed WS 已关闭');
+      feedWs.onerror = () => log('Feed WS 发生错误');
+    }
+
+    function disconnect() {
+      if (feedWs) { feedWs.close(); feedWs = null; }
+      if (dc) { dc.close(); dc = null; }
+      if (pc) { pc.close(); pc = null; }
+      videoEl.srcObject = null;
+      setBadge('未连接');
+      setConnectedUi(false);
+    }
+
+    connectBtn.onclick = () => connect().catch((e) => {
+      log(`连接失败: ${e.message}`);
+      disconnect();
+    });
+    disconnectBtn.onclick = disconnect;
+    clearLogBtn.onclick = () => { logBox.textContent = ''; };
+
+    sendFileBtn.onclick = async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return log('请先选择一个 MP3/WAV 文件');
+      if (!feedWs || feedWs.readyState !== WebSocket.OPEN) return log('Feed WS 未连接');
+      const speechId = `${sessionInput.value.trim()}:${++speechSeq}`;
+      const buf = await file.arrayBuffer();
+      feedWs.send(JSON.stringify({ type: 'speech_start', speechId, format: 'mp3' }));
+      feedWs.send(buf);
+      feedWs.send(JSON.stringify({ type: 'speech_end', speechId }));
+      log(`已推送文件 ${file.name} (${buf.byteLength} bytes), speechId=${speechId}`);
+    };
+
+    sendToneBtn.onclick = () => {
+      if (!feedWs || feedWs.readyState !== WebSocket.OPEN) return log('Feed WS 未连接');
+      const sr = 24000;
+      const durationSec = 2.0;
+      const samples = Math.floor(sr * durationSec);
+      const pcm = new Int16Array(samples);
+      for (let i = 0; i < samples; i++) {
+        const t = i / sr;
+        // 440Hz + 880Hz modulated envelope so mouth clearly opens/closes
+        const env = 0.5 * (1 + Math.sin(2 * Math.PI * 3 * t));
+        const val = env * (0.4 * Math.sin(2 * Math.PI * 440 * t) + 0.25 * Math.sin(2 * Math.PI * 880 * t));
+        pcm[i] = Math.max(-32767, Math.min(32767, Math.floor(val * 32767)));
+      }
+      const speechId = `${sessionInput.value.trim()}:${++speechSeq}`;
+      feedWs.send(JSON.stringify({ type: 'speech_start', speechId, format: 'pcm24k' }));
+      feedWs.send(pcm.buffer);
+      feedWs.send(JSON.stringify({ type: 'speech_end', speechId }));
+      log(`已推送 2 秒 24kHz PCM 测试音频 (${pcm.byteLength} bytes), speechId=${speechId}`);
+    };
+
+    interruptBtn.onclick = () => {
+      if (!feedWs || feedWs.readyState !== WebSocket.OPEN) return log('Feed WS 未连接');
+      feedWs.send(JSON.stringify({ type: 'interrupt' }));
+      log('已发送 interrupt');
+    };
+  </script>
+</body>
+</html>

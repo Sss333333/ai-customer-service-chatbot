@@ -2,6 +2,7 @@ import { streamChatWithOpenRouter } from "../ai/openrouter.js";
 import { getUploadPresignedUrl } from "./s3.js";
 import { ParaformerClient } from "../audio/paraformerWs.js";
 import { parseAudioUpload } from "../audio/multipart.js";
+import { interruptTtsSession } from "../audio/ttsWsServer.js";
 
 /**
  * Handle incoming API requests
@@ -63,7 +64,11 @@ export async function handleRequest(method, pathname, headers = {}, body = null,
       }
 
       const autoSpeak = Boolean(payload?.autoSpeak);
-      const webResponse = await streamChatWithOpenRouter(messages, caseRef, { autoSpeak });
+      const avatarEnabled = Boolean(payload?.avatarEnabled);
+      const webResponse = await streamChatWithOpenRouter(messages, caseRef, {
+        autoSpeak,
+        avatarEnabled
+      });
       const resHeaders = { ...corsHeaders };
       delete resHeaders["Content-Type"];
       webResponse.headers.forEach((value, key) => {
@@ -111,6 +116,24 @@ export async function handleRequest(method, pathname, headers = {}, body = null,
           data: { text },
           text: text
         })
+      };
+    }
+
+    // 4. POST /avatar/interrupt or /api/avatar/interrupt (主动打断数字人及 TTS 合成)
+    if (method === "POST" && normPath === "/avatar/interrupt") {
+      const caseRef = payload?.caseRef || payload?.sessionId;
+      if (!caseRef) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({ error: "caseRef is required" })
+        };
+      }
+      interruptTtsSession(caseRef, { notifyAvatar: true });
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({ ok: true, caseRef })
       };
     }
 

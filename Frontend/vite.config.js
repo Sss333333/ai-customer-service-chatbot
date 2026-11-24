@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const backendTarget = process.env.VITE_BACKEND_PROXY_TARGET || 'http://127.0.0.1:8080';
+const avatarTarget = process.env.VITE_AVATAR_PROXY_TARGET || 'http://127.0.0.1:8282';
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -8,22 +11,34 @@ export default defineConfig({
     allowedHosts: ['5wqv5khjzb-5173.cnb.run'],
     proxy: {
       '/chat': {
-        target: 'http://localhost:8080',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/upload-url': {
-        target: 'http://localhost:8080',
+        target: backendTarget,
+        changeOrigin: true,
+      },
+      '/avatar': {
+        target: backendTarget,
         changeOrigin: true,
       },
       '/api': {
-        target: 'http://localhost:8080',
+        target: backendTarget,
         changeOrigin: true,
         ws: true,
       },
       '/ws': {
-        target: 'http://localhost:8080',
+        target: backendTarget,
         changeOrigin: true,
         ws: true,
+      },
+      '/openavatarchat': {
+        target: avatarTarget,
+        changeOrigin: true,
+      },
+      '/webrtc': {
+        target: avatarTarget,
+        changeOrigin: true,
       },
     },
   },

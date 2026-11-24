@@ -1,0 +1,31 @@
+default:
+  logger:
+    log_level: "INFO"
+  service:
+    host: "0.0.0.0"
+    port: 8282
+    cert_file: ""
+    cert_key: ""
+  chat_engine:
+    model_root: "models"
+    concurrent_limit: 1
+    handler_search_path:
+      - "src/handlers"
+    handler_configs:
+      RtcClient:
+        module: client/rtc_client/client_handler_rtc
+        connection_ttl: 900
+      InterruptHandler:
+        module: logic/interrupt/interrupt_handler
+      ExternalAudioFeed:
+        module: client/external_audio_feed/handler_external_audio_feed
+        sample_rate: 24000
+        ws_path_prefix: "/ws/avatar-feed"
+        enable_test_page: true
+      LiteAvatar:
+        module: avatar/liteavatar/avatar_handler_liteavatar
+        avatar_name: 20250408/sample_data
+        fps: 25
+        debug: false
+        enable_fast_mode: true
+        use_gpu: false
