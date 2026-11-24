@@ -1,4 +1,5 @@
 export const API_BASE = import.meta.env.VITE_API_BASE || '';
+export const AVATAR_BASE = import.meta.env.VITE_AVATAR_BASE || '';
 
 /**
  * Generate a unique case reference ID (e.g. WEB1ABC2XYZ)
@@ -69,4 +70,21 @@ export async function transcribeAudio(file, filename = "voice_input.wav") {
   const result = await res.json();
   const text = result?.data?.text || result?.text || "";
   return { text };
+}
+
+/**
+ * Notify backend to interrupt current TTS synthesis and LAM Avatar playback
+ * @param {string} caseRef
+ */
+export async function interruptAvatar(caseRef) {
+  if (!caseRef) return;
+  try {
+    await fetch(`${API_BASE}/api/avatar/interrupt`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ caseRef }),
+    });
+  } catch {
+    // ignore network errors during interrupt
+  }
 }

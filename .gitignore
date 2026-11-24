@@ -20,6 +20,9 @@ npm-debug.log*
 # Local proxy runtime & credentials
 proxy/
 
+# Local cloned OpenAvatarChat runtime & model weights
+AvatarService/
+
 # OS & Editor files
 .DS_Store
 Thumbs.db
