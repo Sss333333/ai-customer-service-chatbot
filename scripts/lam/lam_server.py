@@ -169,7 +169,7 @@ class LamClientSession:
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
-def create_app(engine: LamInferenceEngine, asset_name: str = "barbara.zip") -> FastAPI:
+def create_app(engine: LamInferenceEngine, asset_name: str = "status.zip") -> FastAPI:
     app = FastAPI(title="AIChatBot LAM Avatar Service")
     app.add_middleware(
         CORSMiddleware,
@@ -475,7 +475,7 @@ def main():
     parser = argparse.ArgumentParser(description="AIChatBot Lightweight LAM Avatar Service")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8282)
-    parser.add_argument("--asset", default="barbara.zip", help="Asset zip inside lam_samples/")
+    parser.add_argument("--asset", default="status.zip", help="Asset zip inside lam_samples/")
     parser.add_argument("--model-root", default="models", help="Model root directory")
     args = parser.parse_args()
 
