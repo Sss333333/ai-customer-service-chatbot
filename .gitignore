@@ -20,8 +20,11 @@ npm-debug.log*
 # Local proxy runtime & credentials
 proxy/
 
-# Local cloned OpenAvatarChat runtime & model weights
-AvatarService/
+# AvatarService local venv, cache & large model weights
+AvatarService/.venv/
+AvatarService/models/
+**/__pycache__/
+*.pyc
 
 # OS & Editor files
 .DS_Store
