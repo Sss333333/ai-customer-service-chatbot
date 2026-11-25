@@ -22,6 +22,7 @@
     "https-proxy-agent": "^9.1.0",
     "msedge-tts": "^2.1.1",
     "nanoid": "^5.1.16",
+    "onnxruntime-node": "^1.21.0",
     "postgres": "^3.4.9",
     "undici": "^8.12.2",
     "ws": "^8.23.0",

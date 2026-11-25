@@ -7,7 +7,7 @@ import {
   sendAvatarInterrupt,
   sendAvatarSpeechEnd,
   sendAvatarSpeechStart,
-} from "./avatarBridge.js";
+} from "../avatar/lamService.js";
 
 const DEFAULT_VOICE = process.env.DEFAULT_TTS_VOICE || "zh-CN-XiaoxiaoNeural";
 

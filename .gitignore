@@ -20,9 +20,8 @@ npm-debug.log*
 # Local proxy runtime & credentials
 proxy/
 
-# AvatarService local venv, cache & large model weights
-AvatarService/.venv/
-AvatarService/models/
+# LAM large ONNX model weights & Python cache
+Backend/assets/lam/*.onnx
 **/__pycache__/
 *.pyc
 

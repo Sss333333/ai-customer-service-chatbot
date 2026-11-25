@@ -2,7 +2,6 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const backendTarget = process.env.VITE_BACKEND_PROXY_TARGET || 'http://127.0.0.1:8080';
-const avatarTarget = process.env.VITE_AVATAR_PROXY_TARGET || 'http://127.0.0.1:8282';
 
 export default defineConfig({
   plugins: [react()],
@@ -28,11 +27,15 @@ export default defineConfig({
         ws: true,
       },
       '/lam': {
-        target: avatarTarget,
+        target: backendTarget,
+        changeOrigin: true,
+      },
+      '/readiness': {
+        target: backendTarget,
         changeOrigin: true,
       },
       '/ws/lam-client': {
-        target: avatarTarget,
+        target: backendTarget,
         changeOrigin: true,
         ws: true,
       },

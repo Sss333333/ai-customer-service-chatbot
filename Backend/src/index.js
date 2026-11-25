@@ -6,6 +6,11 @@ import { attachAsrWebSocketServer } from "./audio/asrWsServer.js";
 import { attachTtsWebSocketServer } from "./audio/ttsWsServer.js";
 import { attachHumanCallWebSocketServer } from "./audio/humanCallWsServer.js";
 import { warmupEdgeTTS } from "./audio/edgeTts.js";
+import {
+  attachLamWebSocketServer,
+  handleLamHttpRequest,
+  initLamService,
+} from "./avatar/lamService.js";
 
 const PORT = process.env.PORT || 8080;
 
@@ -14,6 +19,10 @@ const server = http.createServer(async (req, res) => {
   const method = req.method;
   const pathname = url.pathname;
   const query = Object.fromEntries(url.searchParams.entries());
+
+  if (handleLamHttpRequest(req, res, pathname)) {
+    return;
+  }
 
   let chunks = [];
   req.on("data", chunk => chunks.push(chunk));
@@ -53,12 +62,14 @@ const server = http.createServer(async (req, res) => {
 attachAsrWebSocketServer(server);
 attachTtsWebSocketServer(server);
 attachHumanCallWebSocketServer(server);
+attachLamWebSocketServer(server);
 warmupEdgeTTS();
+initLamService();
 
 server.listen(PORT, () => {
   const mcpTools = listNetSuiteMcpTools();
   console.log(`\n========================================`);
-  console.log(`  Nova AI Customer Service Backend (netsuite-mcp Base)`);
+  console.log(`  Nova AI Customer Service Backend (netsuite-mcp + LAM ONNX)`);
   console.log(`  Local server listening on http://localhost:${PORT}`);
   console.log(`  S3 Bucket:      ${process.env.S3_BUCKET_NAME || "your-s3-bucket-name"}`);
   console.log(`  LLM Provider:   OpenRouter (REST API)`);
@@ -69,5 +80,7 @@ server.listen(PORT, () => {
   console.log(`  Endpoints:`);
   console.log(`    POST /chat (or /api/chat)`);
   console.log(`    POST /upload-url (or /api/upload-url)`);
+  console.log(`    GET  /lam/initconfig, /lam/asset/:fileName, /readiness`);
+  console.log(`    WS   /ws/lam-client/:sessionId, /ws/tts, /ws/asr`);
   console.log(`========================================\n`);
 });

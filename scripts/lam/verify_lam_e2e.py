@@ -20,8 +20,8 @@ def generate_pcm24k(duration_sec: float = 1.5, sr: int = 24000) -> bytes:
 
 
 async def main():
-    base_http = "http://127.0.0.1:8282"
-    base_ws = "ws://127.0.0.1:8282"
+    base_http = "http://127.0.0.1:8080"
+    base_ws = "ws://127.0.0.1:8080"
     session_id = "lam-e2e-test"
 
     async with aiohttp.ClientSession() as http:
