@@ -169,7 +169,7 @@ async function processAndEmit(session, audio1d, isFinal, expectedTurn) {
     const durMs = Math.round(performance.now() - t0);
     console.log(
       `[LAM] session=${session.sessionId} inferred ${numFrames} frames ` +
-        `for ${(seg.length / SAMPLE_RATE).toFixed(2)}s audio in ${durMs}ms`
+      `for ${(seg.length / SAMPLE_RATE).toFixed(2)}s audio in ${durMs}ms`
     );
     safeSendChunk(
       session,
@@ -296,7 +296,7 @@ function handleLamClient(ws, sessionId) {
     prev.turnId += 1;
     try {
       prev.clientWs.close(1000, "Replaced by newer connection");
-    } catch {}
+    } catch { }
   }
 
   const session = {
