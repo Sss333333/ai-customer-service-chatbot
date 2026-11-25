@@ -1,0 +1,15 @@
+{
+  "name": "aichatbot-lam-avatar-service",
+  "version": "1.0.0",
+  "description": "Node.js LAM (3D Gaussian Splatting) Audio2Expression Avatar Service powered by ONNX Runtime",
+  "type": "module",
+  "main": "src/lamServer.js",
+  "scripts": {
+    "start": "node src/lamServer.js",
+    "dev": "node --watch src/lamServer.js"
+  },
+  "dependencies": {
+    "onnxruntime-node": "^1.21.0",
+    "ws": "^8.18.0"
+  }
+}
