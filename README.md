@@ -187,7 +187,7 @@ DATABASE_URL=postgresql://user:password@host:5432/db
 3. 新环境启动后执行一键脚本：
 
 ```bash
-bash /workspace/scripts/setup-proxy.sh
+bash /workspace/Backend/setup/setup-proxy.sh
 ```
 
 脚本会自动完成：

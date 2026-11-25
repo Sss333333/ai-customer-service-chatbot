@@ -5,9 +5,7 @@
  *   - GET  /readiness
  *   - GET  /lam/initconfig
  *   - GET  /lam/asset/:fileName
- *   - GET  /avatar-feed/sessions
  *   - WS   /ws/lam-client/:sessionId    (browser receives speech_chunk JSON + 24kHz int16 PCM)
- *   - WS   /ws/avatar-feed/:sessionId   (optional external feed compatibility)
  *   - In-process API for ttsWsServer.js:
  *       sendAvatarSpeechStart / sendAvatarAudioBuffer / sendAvatarSpeechEnd / sendAvatarInterrupt
  */
@@ -198,7 +196,6 @@ export function handleLamHttpRequest(req, res, pathname) {
   const isLamRoute =
     pathname === "/readiness" ||
     pathname === "/lam/initconfig" ||
-    pathname === "/avatar-feed/sessions" ||
     pathname.startsWith("/lam/asset/");
 
   if (!isLamRoute) return false;
@@ -245,12 +242,6 @@ export function handleLamHttpRequest(req, res, pathname) {
         arkitChannels: engine?.arkitChannels || ARKIT_BLENDSHAPES,
       })
     );
-    return true;
-  }
-
-  if (req.method === "GET" && pathname === "/avatar-feed/sessions") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ sessions: Array.from(sessions.keys()), count: sessions.size }));
     return true;
   }
 
@@ -350,126 +341,8 @@ function handleLamClient(ws, sessionId) {
   });
 }
 
-function handleAvatarFeed(ws, sessionId) {
-  console.log(`[LAM-Feed] External feed connected: session_id=${sessionId}`);
-  let currentFormat = "mp3";
-  let msgChain = Promise.resolve();
-
-  ws.on("message", (data, isBinary) => {
-    msgChain = msgChain
-      .then(async () => {
-        if (!isBinary) {
-          let payload;
-          try {
-            payload = JSON.parse(data.toString("utf8"));
-          } catch {
-            sendJson(ws, { type: "error", message: "Invalid JSON" });
-            return;
-          }
-
-          const evt = payload?.type;
-          if (evt === "ping") {
-            sendJson(ws, {
-              type: "pong",
-              sessionId,
-              sessionActive: sessions.has(sessionId),
-            });
-            return;
-          }
-
-          const session = sessions.get(sessionId);
-          if (!session) {
-            sendJson(ws, {
-              type: "error",
-              code: "session_not_found",
-              message: `No active LAM browser session for session_id=${sessionId}`,
-            });
-            return;
-          }
-
-          if (evt === "speech_start") {
-            session.turnId += 1;
-            session.activeSpeechId = payload.speechId || `${sessionId}:${session.turnId}`;
-            session.inferContext = null;
-            session.pendingAudio = new Float32Array(0);
-            currentFormat = payload.format || "mp3";
-            session.audioFormat = currentFormat;
-            sendJson(ws, {
-              type: "ack",
-              event: "speech_start",
-              speechId: session.activeSpeechId,
-              format: currentFormat,
-            });
-          } else if (evt === "speech_end") {
-            const expectedTurn = session.turnId;
-            await processAndEmit(session, new Float32Array(0), true, expectedTurn);
-            sendJson(ws, {
-              type: "ack",
-              event: "speech_end",
-              speechId: payload.speechId,
-            });
-          } else if (evt === "interrupt") {
-            session.turnId += 1;
-            session.inferContext = null;
-            session.pendingAudio = new Float32Array(0);
-            sendJson(session.clientWs, { type: "interrupt" });
-            sendJson(ws, {
-              type: "ack",
-              event: "interrupt",
-              sessionId,
-            });
-          } else {
-            sendJson(ws, { type: "error", message: `Unknown event: ${evt}` });
-          }
-          return;
-        }
-
-        const session = sessions.get(sessionId);
-        if (!session) {
-          sendJson(ws, {
-            type: "error",
-            code: "session_not_found",
-            message: `No active LAM browser session for session_id=${sessionId}`,
-          });
-          return;
-        }
-
-        try {
-          const expectedTurn = session.turnId;
-          const rawBuf = Buffer.isBuffer(data) ? data : Buffer.from(data);
-          const audio1d = await decodeAudioToFloat32Mono(rawBuf, currentFormat, SAMPLE_RATE);
-          await processAndEmit(session, audio1d, false, expectedTurn);
-          sendJson(ws, {
-            type: "ack",
-            event: "audio",
-            samples: audio1d.length,
-            durationSec: Math.round((audio1d.length / SAMPLE_RATE) * 1000) / 1000,
-          });
-        } catch (err) {
-          console.error(`[LAM-Feed] Failed to process audio (${sessionId}):`, err);
-          sendJson(ws, {
-            type: "error",
-            code: "decode_failed",
-            message: err?.message || String(err),
-          });
-        }
-      })
-      .catch((err) => {
-        console.error(`[LAM-Feed] Unexpected error (${sessionId}):`, err);
-      });
-  });
-
-  ws.on("close", () => {
-    console.log(`[LAM-Feed] External feed disconnected: session_id=${sessionId}`);
-  });
-
-  ws.on("error", (err) => {
-    console.warn(`[LAM-Feed] WS error (${sessionId}):`, err?.message || err);
-  });
-}
-
 /**
- * Attach LAM WebSocket routes (/ws/lam-client/:sessionId and /ws/avatar-feed/:sessionId)
+ * Attach LAM WebSocket route (/ws/lam-client/:sessionId)
  * onto the shared Backend HTTP server.
  */
 export function attachLamWebSocketServer(server) {
@@ -482,19 +355,11 @@ export function attachLamWebSocketServer(server) {
     } catch {
       return;
     }
-    const pathname = urlObj.pathname;
 
-    const clientMatch = pathname.match(/^\/ws\/lam-client\/(.+)$/);
+    const clientMatch = urlObj.pathname.match(/^\/ws\/lam-client\/(.+)$/);
     if (clientMatch) {
       const sessionId = decodeURIComponent(clientMatch[1]);
       wss.handleUpgrade(req, socket, head, (ws) => handleLamClient(ws, sessionId));
-      return;
-    }
-
-    const feedMatch = pathname.match(/^\/ws\/avatar-feed\/(.+)$/);
-    if (feedMatch) {
-      const sessionId = decodeURIComponent(feedMatch[1]);
-      wss.handleUpgrade(req, socket, head, (ws) => handleAvatarFeed(ws, sessionId));
     }
   });
 }
