@@ -7,10 +7,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "download:model": "node src/avatar/downloadModel.js",
-    "db:seed": "node ./建立rag/seed.js",
+    "download:model": "node ./setup/downloadModel.js",
+    "db:seed": "node ./setup/seed.js",
     "test": "node test/test_tools.js",
-    "rag:test": "node ./建立rag/test_rag.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.750.0",

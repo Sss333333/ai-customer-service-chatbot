@@ -6,7 +6,7 @@ import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const MODEL_PATH = path.resolve(__dirname, "../../assets/lam/lam_audio2exp.onnx");
+const MODEL_PATH = path.resolve(__dirname, "../assets/lam/lam_audio2exp.onnx");
 const MODEL_URL =
   process.env.LAM_MODEL_URL ||
   "https://github.com/Sss333333/ai-customer-service-chatbot/releases/download/models-v1/lam_audio2exp.onnx";
