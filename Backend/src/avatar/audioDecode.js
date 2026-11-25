@@ -1,4 +1,16 @@
 import { spawn } from "node:child_process";
+import fs from "node:fs";
+import ffmpegStatic from "ffmpeg-static";
+
+function resolveFfmpegBin() {
+  const candidates = [process.env.FFMPEG_PATH, ffmpegStatic].filter(Boolean);
+  for (const bin of candidates) {
+    try {
+      if (fs.existsSync(bin)) return bin;
+    } catch {}
+  }
+  return "ffmpeg";
+}
 
 /**
  * Decode incoming MP3/WAV/OGG/PCM bytes into 1D Float32Array mono waveform at targetSr.
@@ -21,7 +33,7 @@ export async function decodeAudioToFloat32Mono(payload, audioFormat = "mp3", tar
     return out;
   }
 
-  const ffmpegBin = process.env.FFMPEG_PATH || "ffmpeg";
+  const ffmpegBin = resolveFfmpegBin();
   const args = [
     "-hide_banner",
     "-loglevel",

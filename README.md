@@ -27,7 +27,7 @@ npm install
 npm run dev
 ```
 
-The backend listens on `http://localhost:8080` by default.
+The backend listens on `http://localhost:8080` by default. LAM avatar audio decoding uses the bundled `ffmpeg-static` dependency, so no system-wide ffmpeg installation is needed; set `FFMPEG_PATH` to override the binary.
 
 ### 2. Frontend Setup
 
