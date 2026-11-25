@@ -1,4 +1,4 @@
-import { runSuiteQL } from "../services/netsuite.js";
+import { runSuiteQL } from "../netsuite.js";
 
 const _cache = new Map();
 const CACHE_TTL_MS = 60 * 1000; // 60s cache

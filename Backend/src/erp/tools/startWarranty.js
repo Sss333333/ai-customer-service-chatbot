@@ -1,4 +1,4 @@
-import { runSuiteQL, createNetSuiteCase } from "../services/netsuite.js";
+import { runSuiteQL, createNetSuiteCase } from "../netsuite.js";
 
 /**
  * Resolves customer internal ID from NetSuite by email, or falls back to default customer ID (13)

@@ -5,7 +5,7 @@ import { ProxyAgent, setGlobalDispatcher } from "undici";
 const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || "http://127.0.0.1:7890";
 setGlobalDispatcher(new ProxyAgent(proxy));
 
-import { buildOAuthHeader, runSuiteQL } from "../src/services/netsuite.js";
+import { buildOAuthHeader, runSuiteQL } from "../src/erp/netsuite.js";
 
 async function testNativeRestCreateCase() {
   const accountId = process.env.NETSUITE_ACCOUNT_ID;

@@ -2,9 +2,9 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import assert from "assert";
-import { executeTool } from "../src/tools/index.js";
+import { executeTool } from "../src/erp/tools/index.js";
 import { handleRequest } from "../src/api/router.js";
-import { listNetSuiteMcpTools, probeNetSuite } from "../src/services/netsuite.js";
+import { listNetSuiteMcpTools, probeNetSuite } from "../src/erp/netsuite.js";
 
 async function runTests() {
   console.log("=== Testing NewBackend (netsuite-mcp Base + Upper Business Layer) ===\n");

@@ -1,4 +1,4 @@
-import { findRelevantContent } from "../rag/embeddingAndRecall.js";
+import { findRelevantContent } from "../../rag/embeddingAndRecall.js";
 
 /**
  * Tool Definition Schema: getInformation (RAG 向量知识库检索工具)

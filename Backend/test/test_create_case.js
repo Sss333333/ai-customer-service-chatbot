@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { buildOAuthHeader } from "../src/services/netsuite.js";
+import { buildOAuthHeader } from "../src/erp/netsuite.js";
 
 async function testCreateCase(scriptId, deployId) {
   const accountId = process.env.NETSUITE_ACCOUNT_ID;

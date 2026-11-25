@@ -8,7 +8,7 @@ import {
 } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { SYSTEM_PROMPT } from "./prompt.js";
-import { createAiSdkTools } from "../tools/index.js";
+import { createAiSdkTools } from "../erp/tools/index.js";
 import { createTtsSideChannel, hasTtsClient } from "../audio/ttsWsServer.js";
 
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";

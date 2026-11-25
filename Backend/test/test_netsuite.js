@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { checkItemAvailability } from "../src/services/netsuite.js";
+import { checkItemAvailability } from "../src/erp/netsuite.js";
 
 async function test() {
   console.log("=== Testing NetSuite RESTlet Integration ===");

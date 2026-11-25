@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { runSuiteQL } from "../src/services/netsuite.js";
+import { runSuiteQL } from "../src/erp/netsuite.js";
 
 const LOW_STOCK_THRESHOLD = 5;
 const _cache = new Map();

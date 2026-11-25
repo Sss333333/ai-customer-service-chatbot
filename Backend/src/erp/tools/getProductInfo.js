@@ -1,4 +1,4 @@
-import { runSuiteQL } from "../services/netsuite.js";
+import { runSuiteQL } from "../netsuite.js";
 
 const LOW_STOCK_THRESHOLD = 5;
 const _cache = new Map();

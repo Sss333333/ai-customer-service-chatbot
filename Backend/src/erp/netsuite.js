@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { netsuiteRequest } from "../netsuite-mcp/netsuite-client.js";
-import { register as registerSystem } from "../netsuite-mcp/tools/system.js";
-import { register as registerQuery } from "../netsuite-mcp/tools/query.js";
-import { register as registerRecords } from "../netsuite-mcp/tools/records.js";
+import { netsuiteRequest } from "./netsuite-mcp/netsuite-client.js";
+import { register as registerSystem } from "./netsuite-mcp/tools/system.js";
+import { register as registerQuery } from "./netsuite-mcp/tools/query.js";
+import { register as registerRecords } from "./netsuite-mcp/tools/records.js";
 
 // Re-export the low-level netsuite-mcp client for direct access if needed
 export { netsuiteRequest };

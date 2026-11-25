@@ -51,7 +51,7 @@ npm run db:seed
 ## Security Notes
 
 - Never commit `.env` files or real API keys. Use `Backend/.env.example` as a template.
-- NetSuite custom field identifiers in `Backend/src/tools/getProductInfo.js` and `Backend/src/services/netsuite.js` are placeholder names (`custitem_custom_*`, `custevent_case_evidence_link`); update them to match your NetSuite account schema before deploying.
+- NetSuite custom field identifiers in `Backend/src/erp/tools/getProductInfo.js` and `Backend/src/erp/netsuite.js` are placeholder names (`custitem_custom_*`, `custevent_case_evidence_link`); update them to match your NetSuite account schema before deploying.
 
 ---
 

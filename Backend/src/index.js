@@ -1,7 +1,7 @@
 import http from "http";
 import "dotenv/config";
 import { handleRequest } from "./api/router.js";
-import { listNetSuiteMcpTools } from "./services/netsuite.js";
+import { listNetSuiteMcpTools } from "./erp/netsuite.js";
 import { attachAsrWebSocketServer } from "./audio/asrWsServer.js";
 import { attachTtsWebSocketServer } from "./audio/ttsWsServer.js";
 import { attachHumanCallWebSocketServer } from "./audio/humanCallWsServer.js";
