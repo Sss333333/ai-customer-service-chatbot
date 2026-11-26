@@ -14,8 +14,6 @@ import { AvatarPanel } from './components/AvatarPanel';
 import { cn } from './utils/cn';
 import './App.css';
 
-const isEmbed = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('embed');
-
 // 断点常量：与 Tailwind md: 断点保持一致
 const WIDE_VIEWPORT_QUERY = '(min-width: 768px)';
 
@@ -150,8 +148,6 @@ export default function App() {
   // 监听窗口尺寸变化，通过 state 驱动 autoConnect
   const [isWide, setIsWide] = useState(isWideViewport);
   useEffect(() => {
-    if (isEmbed) return;
-    
     const mq = window.matchMedia(WIDE_VIEWPORT_QUERY);
     const onChange = (e) => setIsWide(e.matches);
     mq.addEventListener('change', onChange);
@@ -160,7 +156,7 @@ export default function App() {
 
   const avatar = useLamAvatar({
     sessionId: caseRef.current,
-    autoConnect: !isEmbed && isWide,
+    autoConnect: isWide,
     chatState: lamChatState,
   });
 
@@ -418,43 +414,38 @@ export default function App() {
     <div
       className={cn(
         'flex min-h-screen justify-center text-[#211f1b]',
-        isEmbed ? 'bg-[#fbfaf7]' : 'bg-[#eceae4]'
+        'bg-[#eceae4]'
       )}
     >
-      {!isEmbed && (
-        <AvatarPanel
-          status={avatar.status}
-          loadPercent={avatar.loadPercent}
-          isConnected={avatar.isConnected}
-          isSpeaking={avatar.isSpeaking}
-          isMuted={avatar.isMuted}
-          needsAudioUnlock={avatar.needsAudioUnlock}
-          error={avatar.error}
-          containerRef={avatar.containerRef}
-          onConnect={avatar.connect}
-          onDisconnect={avatar.disconnect}
-          onToggleMute={avatar.toggleMute}
-          onUnlockAudio={avatar.unlockAudio}
-          isAwaitingResponse={isAwaitingResponse}
-          currentToolLabel={currentToolCall ? TOOL_STATUS_LABELS[currentToolCall] : null}
-          isCallActive={isCallActive}
-          callState={callState}
-          humanMode={humanMode}
-        />
-      )}
+      <AvatarPanel
+        status={avatar.status}
+        loadPercent={avatar.loadPercent}
+        isConnected={avatar.isConnected}
+        isSpeaking={avatar.isSpeaking}
+        isMuted={avatar.isMuted}
+        needsAudioUnlock={avatar.needsAudioUnlock}
+        error={avatar.error}
+        containerRef={avatar.containerRef}
+        onConnect={avatar.connect}
+        onDisconnect={avatar.disconnect}
+        onToggleMute={avatar.toggleMute}
+        onUnlockAudio={avatar.unlockAudio}
+        isAwaitingResponse={isAwaitingResponse}
+        currentToolLabel={currentToolCall ? TOOL_STATUS_LABELS[currentToolCall] : null}
+        isCallActive={isCallActive}
+        callState={callState}
+        humanMode={humanMode}
+      />
 
       <div
         className={cn(
           'flex h-screen w-full flex-col bg-[#fbfaf7] box-border',
-          isEmbed
-            ? 'h-dvh max-w-none border-none'
-            : 'max-w-[620px] border-x border-[#ddd8d0] max-[480px]:border-x-0'
+          'max-w-[620px] border-x border-[#ddd8d0] max-[480px]:border-x-0'
         )}
       >
         <header
           className={cn(
-            'flex items-center justify-between border-b border-[#e6e1d9] bg-[#fbfaf7] px-5 py-4',
-            isEmbed && 'pr-[52px]'
+            'flex items-center justify-between border-b border-[#e6e1d9] bg-[#fbfaf7] px-5 py-4'
           )}
         >
           <div className="flex items-center gap-3">
