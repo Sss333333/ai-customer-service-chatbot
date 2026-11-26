@@ -14,14 +14,6 @@ import { AvatarPanel } from './components/AvatarPanel';
 import { cn } from './utils/cn';
 import './App.css';
 
-// 断点常量：与 Tailwind md: 断点保持一致
-const WIDE_VIEWPORT_QUERY = '(min-width: 768px)';
-
-const isWideViewport = () => {
-  if (typeof window === 'undefined') return false;
-  return window.matchMedia(WIDE_VIEWPORT_QUERY).matches;
-};
-
 const INITIAL_GREETING = {
   id: 'assistant-greeting',
   role: 'assistant',
@@ -144,19 +136,10 @@ export default function App() {
   } = useAudioPlayer({ sessionId: caseRef.current });
 
   const [lamChatState, setLamChatState] = useState('Idle');
-  
-  // 监听窗口尺寸变化，通过 state 驱动 autoConnect
-  const [isWide, setIsWide] = useState(isWideViewport);
-  useEffect(() => {
-    const mq = window.matchMedia(WIDE_VIEWPORT_QUERY);
-    const onChange = (e) => setIsWide(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
 
   const avatar = useLamAvatar({
     sessionId: caseRef.current,
-    autoConnect: isWide,
+    autoConnect: true,
     chatState: lamChatState,
   });
 
