@@ -1,7 +1,15 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+  lazy,
+  Suspense,
+  Component,
+} from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, getToolName, isToolUIPart } from 'ai';
-import { Streamdown } from 'streamdown';
 import { Volume2, VolumeX, Phone, PhoneOff, Headset, ExternalLink, Mic, MicOff } from 'lucide-react';
 import { resizeImage } from './utils/image';
 import { API_BASE, uploadFile, generateCaseRef } from './utils/api';
@@ -32,6 +40,46 @@ const TOOL_STATUS_LABELS = {
   check_case_status: 'Checking support case status (正在查询工单进度)…',
   start_warranty_claim: 'Logging support case in NetSuite (正在提交售后工单)…',
 };
+
+// Streamdown (and its Markdown parser) is loaded on demand, only when a real
+// Markdown message is about to render. React/ReactDOM stay in the first-screen
+// chunk; the initial plain-text greeting never pulls this chunk in.
+const Streamdown = lazy(() =>
+  import('streamdown').then((module) => ({ default: module.Streamdown }))
+);
+
+/** Plain-text fallback shown while the Streamdown chunk loads or if it fails. */
+function PlainText({ text }) {
+  return <div className="whitespace-pre-wrap">{text}</div>;
+}
+
+/** Isolates a lazy-chunk failure so a bad/slow chunk never breaks the chat. */
+class MarkdownErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    if (this.state.failed) return <PlainText text={this.props.text} />;
+    return this.props.children;
+  }
+}
+
+/** Renders Markdown through lazy Streamdown with a plain-text safety net. */
+function MarkdownContent({ text }) {
+  return (
+    <MarkdownErrorBoundary text={text}>
+      <Suspense fallback={<PlainText text={text} />}>
+        <Streamdown>{text}</Streamdown>
+      </Suspense>
+    </MarkdownErrorBoundary>
+  );
+}
 
 /**
  * Strip internal system instructions (e.g. "[The customer attached...]") from user bubble display
@@ -594,6 +642,10 @@ export default function App() {
 
           {messages.map((m) => {
             const parts = Array.isArray(m.parts) ? m.parts : [];
+            // Stable signal: the greeting is a fixed message with a fixed id.
+            // Never infer "Markdown-ness" from tokens in the text, because
+            // streaming text changes would flip the renderer and flicker.
+            const isGreeting = m.id === INITIAL_GREETING.id;
 
             if (m.role === 'user') {
               const fileParts = parts.filter((p) => p.type === 'file');
@@ -618,7 +670,7 @@ export default function App() {
                       />
                     ) : null
                   )}
-                  {displayText && <Streamdown>{displayText}</Streamdown>}
+                  {displayText && <MarkdownContent text={displayText} />}
                 </div>
               );
             }
@@ -663,7 +715,11 @@ export default function App() {
                   isStreaming={!textContent && status === 'streaming'}
                 />
                 {textContent ? (
-                  <Streamdown>{formatAssistantMarkdown(textContent)}</Streamdown>
+                  isGreeting ? (
+                    <div className="whitespace-pre-wrap">{textContent}</div>
+                  ) : (
+                    <MarkdownContent text={formatAssistantMarkdown(textContent)} />
+                  )
                 ) : null}
               </div>
             );
