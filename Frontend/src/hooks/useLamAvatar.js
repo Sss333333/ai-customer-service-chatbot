@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { GaussianSplatRenderer } from 'gaussian-splat-renderer-for-lam';
 import { AVATAR_BASE, interruptAvatar } from '../utils/api';
+
+// 渲染器构造函数缓存，动态加载后填充
+let RendererCtor = null;
 
 function isWebGLSupported() {
   if (typeof document === 'undefined') return false;
@@ -109,8 +111,8 @@ export function useLamAvatar({
       } catch {}
       rendererRef.current = null;
       // Clear singleton reference so reconnect can recreate cleanly
-      if (GaussianSplatRenderer.instance) {
-        GaussianSplatRenderer.instance = undefined;
+      if (RendererCtor?.instance) {
+        RendererCtor.instance = undefined;
       }
     }
     if (containerRef.current) {
@@ -265,9 +267,17 @@ export function useLamAvatar({
         throw new Error('3D 渲染容器未挂载');
       }
 
-      // 2. Load 3D Gaussian Splatting asset into WebGL
+      // 2. 动态加载 3D Gaussian Splatting 渲染器（首次加载后缓存）
+      if (!RendererCtor) {
+        const module = await import('gaussian-splat-renderer-for-lam');
+        RendererCtor = module.GaussianSplatRenderer;
+      }
+
+      if (mySeq !== connectSeqRef.current) return;
+
+      // 3. Load 3D Gaussian Splatting asset into WebGL
       const assetUrl = AVATAR_BASE ? `${AVATAR_BASE}${cfg.assetUrl}` : cfg.assetUrl;
-      const renderer = await GaussianSplatRenderer.getInstance(container, assetUrl, {
+      const renderer = await RendererCtor.getInstance(container, assetUrl, {
         backgroundColor: '0xf4f1eb',
         downloadProgress: (p) => {
           if (mySeq === connectSeqRef.current) {
@@ -286,7 +296,9 @@ export function useLamAvatar({
       if (mySeq !== connectSeqRef.current) {
         try {
           renderer.dispose?.();
-          GaussianSplatRenderer.instance = undefined;
+          if (RendererCtor?.instance) {
+            RendererCtor.instance = undefined;
+          }
         } catch {}
         return;
       }
