@@ -480,123 +480,115 @@ export default function App() {
   return (
     <div
       className={cn(
-        'flex min-h-screen justify-center text-[#211f1b]',
+        'flex h-dvh min-h-screen w-full flex-col items-center text-[#211f1b]',
         'bg-[#eceae4]'
       )}
     >
-      <AvatarPanel
-        status={avatar.status}
-        loadPercent={avatar.loadPercent}
-        isConnected={avatar.isConnected}
-        isSpeaking={avatar.isSpeaking}
-        isMuted={avatar.isMuted}
-        needsAudioUnlock={avatar.needsAudioUnlock}
-        error={avatar.error}
-        containerRef={avatar.containerRef}
-        onConnect={avatar.connect}
-        onDisconnect={avatar.disconnect}
-        onToggleMute={avatar.toggleMute}
-        onUnlockAudio={avatar.unlockAudio}
-        isAwaitingResponse={isAwaitingResponse}
-        currentToolLabel={currentToolCall ? TOOL_STATUS_LABELS[currentToolCall] : null}
-        isCallActive={isCallActive}
-        callState={callState}
-        humanMode={humanMode}
-      />
-
-      <div
-        className={cn(
-          'flex h-screen w-full flex-col bg-[#fbfaf7] box-border',
-          'max-w-[620px] border-x border-[#ddd8d0] max-[480px]:border-x-0'
-        )}
-      >
-        <header
-          className={cn(
-            'flex items-center justify-between border-b border-[#e6e1d9] bg-[#fbfaf7] px-5 py-4'
-          )}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[9px] bg-[#23453c] text-[18px] text-white"
-              aria-hidden="true"
-            >
-              ◧
-            </div>
-            <div>
-              <h1 className="m-0 text-base font-semibold tracking-[-0.01em]">Nova</h1>
-              <p className="m-0 mt-px text-[12.5px] text-[#7c766e]">
-                Your 24/7 customer service agent
-              </p>
-            </div>
+      <header className="flex w-full max-w-[1000px] flex-none flex-wrap items-center justify-between gap-x-4 gap-y-3 border-x border-t border-b border-[#e6e1d9] bg-[#fbfaf7] px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div
+            className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[9px] bg-[#23453c] text-[18px] text-white"
+            aria-hidden="true"
+          >
+            ◧
           </div>
+          <div>
+            <h1 className="m-0 text-base font-semibold tracking-[-0.01em]">Nova</h1>
+            <p className="m-0 mt-px text-[12.5px] text-[#7c766e]">
+              Your 24/7 customer service agent
+            </p>
+          </div>
+        </div>
 
-          <div className="flex items-center gap-2">
-            {/* 转人工客服按钮 */}
-            <button
-              type="button"
-              onClick={handleToggleHumanChat}
-              disabled={done}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-xs select-none disabled:opacity-45 disabled:cursor-default",
-                humanMode === 'connected'
-                  ? "bg-emerald-700 text-white border-emerald-700 hover:bg-emerald-800"
-                  : humanMode === 'ringing'
-                    ? "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
-                    : "bg-white text-[#23453c] border-[#23453c]/40 hover:bg-[#23453c]/5"
-              )}
-              title={
-                humanMode === 'connected'
-                  ? "点击挂断人工对话并切回 AI"
-                  : humanMode === 'ringing'
-                    ? "正在呼叫人工客服，点击取消"
-                    : "呼叫人工客服"
-              }
-            >
-              <Headset className="size-3.5" />
-              <span>
-                {humanMode === 'connected'
-                  ? '挂断人工'
-                  : humanMode === 'ringing'
-                    ? '呼叫中'
-                    : '转人工'}
-              </span>
-            </button>
-
-            {/* 实时语音通话开关 */}
-            <button
-              type="button"
-              onClick={handleToggleCall}
-              disabled={done}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-xs select-none disabled:opacity-45 disabled:cursor-default",
-                isCallActive
-                  ? "bg-[#b43728] text-white border-[#b43728] animate-pulse"
+        <div className="flex items-center gap-2">
+          {/* 转人工客服按钮 */}
+          <button
+            type="button"
+            onClick={handleToggleHumanChat}
+            disabled={done}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-xs select-none disabled:opacity-45 disabled:cursor-default",
+              humanMode === 'connected'
+                ? "bg-emerald-700 text-white border-emerald-700 hover:bg-emerald-800"
+                : humanMode === 'ringing'
+                  ? "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
                   : "bg-white text-[#23453c] border-[#23453c]/40 hover:bg-[#23453c]/5"
-              )}
-              title={isCallActive ? "挂断实时通话" : "开启免按键实时语音对话"}
-            >
-              {isCallActive ? <PhoneOff className="size-3.5" /> : <Phone className="size-3.5" />}
-              <span>{isCallActive ? "挂断" : "实时通话"}</span>
-            </button>
+            )}
+            title={
+              humanMode === 'connected'
+                ? "点击挂断人工对话并切回 AI"
+                : humanMode === 'ringing'
+                  ? "正在呼叫人工客服，点击取消"
+                  : "呼叫人工客服"
+            }
+          >
+            <Headset className="size-3.5" />
+            <span>
+              {humanMode === 'connected'
+                ? '挂断人工'
+                : humanMode === 'ringing'
+                  ? '呼叫中'
+                  : '转人工'}
+            </span>
+          </button>
 
-            {/* 自动朗读开关 */}
-            <button
-              type="button"
-              onClick={handleToggleAutoSpeak}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-xs select-none",
-                autoSpeak
-                  ? "bg-[#23453c] text-white border-[#23453c]"
-                  : "bg-white text-[#7c766e] border-[#ddd8d0] hover:text-[#211f1b] hover:border-[#b0aaa0]"
-              )}
-              title={autoSpeak ? "Auto-speak enabled (Click to turn off)" : "Auto-speak disabled (Click to turn on)"}
-            >
-              {autoSpeak ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
-              <span>Auto-speak</span>
-            </button>
-          </div>
-        </header>
+          {/* 实时语音通话开关 */}
+          <button
+            type="button"
+            onClick={handleToggleCall}
+            disabled={done}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-xs select-none disabled:opacity-45 disabled:cursor-default",
+              isCallActive
+                ? "bg-[#b43728] text-white border-[#b43728] animate-pulse"
+                : "bg-white text-[#23453c] border-[#23453c]/40 hover:bg-[#23453c]/5"
+            )}
+            title={isCallActive ? "挂断实时通话" : "开启免按键实时语音对话"}
+          >
+            {isCallActive ? <PhoneOff className="size-3.5" /> : <Phone className="size-3.5" />}
+            <span>{isCallActive ? "挂断" : "实时通话"}</span>
+          </button>
 
+          {/* 自动朗读开关 */}
+          <button
+            type="button"
+            onClick={handleToggleAutoSpeak}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-xs select-none",
+              autoSpeak
+                ? "bg-[#23453c] text-white border-[#23453c]"
+                : "bg-white text-[#7c766e] border-[#ddd8d0] hover:text-[#211f1b] hover:border-[#b0aaa0]"
+            )}
+            title={autoSpeak ? "Auto-speak enabled (Click to turn off)" : "Auto-speak disabled (Click to turn on)"}
+          >
+            {autoSpeak ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
+            <span>Auto-speak</span>
+          </button>
+        </div>
+      </header>
+
+      <div className="flex min-h-0 w-full max-w-[1000px] flex-1">
+        <AvatarPanel
+          status={avatar.status}
+          loadPercent={avatar.loadPercent}
+          isConnected={avatar.isConnected}
+          isSpeaking={avatar.isSpeaking}
+          isMuted={avatar.isMuted}
+          needsAudioUnlock={avatar.needsAudioUnlock}
+          error={avatar.error}
+          containerRef={avatar.containerRef}
+          onConnect={avatar.connect}
+          onDisconnect={avatar.disconnect}
+          onToggleMute={avatar.toggleMute}
+          onUnlockAudio={avatar.unlockAudio}
+          isAwaitingResponse={isAwaitingResponse}
+          currentToolLabel={currentToolCall ? TOOL_STATUS_LABELS[currentToolCall] : null}
+          isCallActive={isCallActive}
+          callState={callState}
+          humanMode={humanMode}
+        />
+
+        <div className="flex h-full min-w-0 flex-1 flex-col border-x border-[#ddd8d0] bg-[#fbfaf7] box-border max-[480px]:border-x-0">
         {/* 人工对话模式顶部状态横幅 */}
         {humanMode !== 'ai' && (
           <div
@@ -964,6 +956,7 @@ export default function App() {
             </button>
           )}
         </form>
+      </div>
       </div>
     </div>
   );

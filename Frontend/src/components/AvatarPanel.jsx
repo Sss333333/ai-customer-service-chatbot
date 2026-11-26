@@ -48,7 +48,7 @@ export function AvatarPanel({
   })();
 
   return (
-    <aside className="hidden md:flex h-screen w-[340px] lg:w-[380px] flex-none flex-col border-l border-[#ddd8d0] bg-[#fbfaf7] box-border">
+    <aside className="hidden md:flex h-full min-h-0 w-[340px] lg:w-[380px] flex-none flex-col border-l border-[#ddd8d0] bg-[#fbfaf7] box-border">
       {/* 顶部栏 */}
       <div className="flex items-center justify-between border-b border-[#e6e1d9] px-4 py-3.5">
         <div className="flex items-center gap-2 min-w-0">
