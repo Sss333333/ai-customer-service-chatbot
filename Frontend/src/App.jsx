@@ -344,6 +344,42 @@ export default function App() {
     }
   }, [isAwaitingResponse, done]);
 
+  // Preload the Streamdown chunk during idle time, strictly after the first
+  // frame has painted. This runs in a passive effect (never during render or
+  // mount), never blocks the initial paint, and never touches build config.
+  // It removes the Suspense plain-text flash when the first assistant reply
+  // streams in. A failed chunk is still handled by MarkdownErrorBoundary at
+  // render time; the catch here only avoids an unhandled prefetch rejection.
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    let rafId;
+    let idleId;
+    let fallbackId;
+    const prefetch = () => {
+      // Same specifier as the lazy() call so Vite/Rollup dedupe the chunk.
+      import('streamdown').catch(() => {});
+    };
+    const afterFirstFrame = () => {
+      if (typeof window.requestIdleCallback === 'function') {
+        idleId = window.requestIdleCallback(prefetch, { timeout: 2000 });
+      } else {
+        // No requestIdleCallback (e.g. older Safari): defer to a macrotask,
+        // still outside the critical rendering path.
+        fallbackId = window.setTimeout(prefetch, 0);
+      }
+    };
+    if (typeof window.requestAnimationFrame === 'function') {
+      rafId = window.requestAnimationFrame(afterFirstFrame);
+    } else {
+      afterFirstFrame();
+    }
+    return () => {
+      if (rafId != null && window.cancelAnimationFrame) window.cancelAnimationFrame(rafId);
+      if (idleId != null && window.cancelIdleCallback) window.cancelIdleCallback(idleId);
+      if (fallbackId != null) window.clearTimeout(fallbackId);
+    };
+  }, []);
+
   const handleToggleHumanChat = useCallback(() => {
     if (humanMode === 'ai') {
       if (isCallActive) endCall();
