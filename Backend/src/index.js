@@ -75,6 +75,7 @@ server.listen(PORT, () => {
   console.log(`  LLM Provider:   OpenRouter (REST API)`);
   console.log(`  Model ID:       ${process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-ultra-550b-a55b:free"}`);
   console.log(`  TTS Engine:     ${dashTts ? `DashScope (${dashTts.model}, voice=${dashTts.voice})` : "Disabled (set DASHSCOPE_API_KEY in .env)"}`);
+  console.log(`  ASR Engine:     ${dashTts ? `DashScope (${process.env.DASHSCOPE_ASR_MODEL || "qwen-audio-3.1-asr-flash-streaming"})` : "Disabled (set DASHSCOPE_API_KEY in .env)"}`);
   console.log(`  API Key:        ${process.env.OPENROUTER_API_KEY ? "Configured (***" + process.env.OPENROUTER_API_KEY.slice(-4) + ")" : "NOT SET (set OPENROUTER_API_KEY in .env)"}`);
   console.log(`  NetSuite ERP:   ${process.env.NETSUITE_ACCOUNT_ID ? "Enabled via netsuite-mcp (Account " + process.env.NETSUITE_ACCOUNT_ID + ")" : "Disabled"}`);
   console.log(`  MCP Foundation: ${mcpTools.length} tools mounted (${mcpTools.join(", ")})`);
