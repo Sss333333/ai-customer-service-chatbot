@@ -1,5 +1,7 @@
 # Nova — AI 3D Digital Human Customer Service Platform
 
+**English** | [简体中文](./README.zh-CN.md)
+
 An end-to-end multimodal AI customer service and after-sales support platform featuring an **in-browser WebGL 3D Gaussian Splatting Digital Human (driven by in-process ONNX `audio2exp`)**, **streaming multi-step LLM reasoning**, **Supabase `pgvector` RAG knowledge base retrieval**, **live ERP order/inventory/case integration**, **hands-free real-time voice calls with barge-in**, and a **3-column live voice translation Specialist Workspace (`/agent`)**.
 
 ---

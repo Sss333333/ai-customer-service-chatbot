@@ -194,17 +194,15 @@ unzip -l 找到的文件路径 | head -40
 
 ---
 
-### Step 8：在 `AIChatBot-LAM` 项目中加载（已实测验证）
+### Step 8：在 `AIChatBot-LAM-ONNX` 项目中加载（进程内 ONNX 模式）
 
-1. 将取回的 `.zip`（例如 `nova.zip`）复制到本地项目目录：
-   `F:/Workspace/SDF/AIChatBot-LAM/AvatarService/src/handlers/client/ws_lam_client/lam_samples/nova.zip`
-2. 启动轻量 LAM 服务并指定该形象（纯 WebSocket，无需 WebRTC/TURN；本机纯 CPU 实测待机 CPU `0%`、内存 `~1.3 GB`）：
-   ```powershell
-   cd F:\Workspace\SDF\AIChatBot-LAM\AvatarService
-   $env:PATH = "$PWD\.venv\Scripts;$env:PATH"
-   python src\lam_server.py --port 8282 --asset nova.zip
+1. 将取回的 `.zip`（例如 `nova.zip`）复制到后端 LAM 资产目录：
+   `Backend/assets/lam/nova.zip`
+2. 在 `Backend/.env` 中指定该角色文件名（并确保 `Backend/assets/lam/lam_audio2exp.onnx` 已通过 `npm run download:model` 下载到位）：
+   ```env
+   LAM_ASSET_NAME=nova.zip
    ```
-3. 启动 `AIChatBot-LAM/Backend`（端口 `8080`）与 `AIChatBot-LAM/Frontend`（端口 `5173`），访问 `http://localhost:5173` 即可看到新 3D 角色并联动语音口型。
+3. 分别启动 `Backend`（端口 `8080`，Node.js 进程内直接通过 `onnxruntime-node` 驱动表情，无需单独启动 Python 服务）与 `Frontend`（端口 `5173`），访问 `http://localhost:5173` 即可看到新 3D 角色并联动语音口型与聊天头像缩略图。
 4. 公网部署注意事项：
    - 浏览器调用麦克风（实时语音通话）强制要求 **HTTPS**（或 `localhost`）；
    - 建议将 `.zip` 形象包放 CDN，减少源站带宽占用。
