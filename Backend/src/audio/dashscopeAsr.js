@@ -4,7 +4,6 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 
 const DASHSCOPE_WS_ENDPOINT = "wss://dashscope.aliyuncs.com/api-ws/v1/inference";
 export const DEFAULT_DASHSCOPE_ASR_MODEL = "qwen-audio-3.1-asr-flash-streaming";
-export const MODEL_PARAFORMER_REALTIME_V2 = DEFAULT_DASHSCOPE_ASR_MODEL;
 
 /**
  * 规范化并校验音频格式
@@ -32,7 +31,7 @@ function getAudioSampleRate(audioBuffer, format) {
   return 16000;
 }
 
-export class ParaformerClient {
+export class DashScopeAsrClient {
   constructor(apiKey, model) {
     this.apiKey = apiKey || process.env.DASHSCOPE_API_KEY || "";
     this.model = model || process.env.DASHSCOPE_ASR_MODEL || DEFAULT_DASHSCOPE_ASR_MODEL;

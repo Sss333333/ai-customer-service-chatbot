@@ -1,6 +1,6 @@
 import { streamChatWithOpenRouter } from "../ai/openrouter.js";
 import { getUploadPresignedUrl } from "./s3.js";
-import { ParaformerClient } from "../audio/paraformerWs.js";
+import { DashScopeAsrClient } from "../audio/dashscopeAsr.js";
 import { parseAudioUpload } from "../audio/multipart.js";
 import { interruptTtsSession } from "../audio/ttsWsServer.js";
 
@@ -102,10 +102,10 @@ export async function handleRequest(method, pathname, headers = {}, body = null,
       };
     }
 
-    // 3. POST /audio/transcribe or /api/audio/transcribe (DashScope Paraformer 语音识别)
+    // 3. POST /audio/transcribe or /api/audio/transcribe (DashScope 实时语音识别)
     if (method === "POST" && normPath === "/audio/transcribe") {
       const { fileBuffer, filename } = await parseAudioUpload(headers, body);
-      const client = new ParaformerClient();
+      const client = new DashScopeAsrClient();
       const text = await client.transcribeOnce(fileBuffer, filename);
 
       return {

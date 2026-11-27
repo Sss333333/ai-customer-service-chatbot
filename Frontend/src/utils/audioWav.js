@@ -1,6 +1,6 @@
 /**
  * Convert any browser-recorded Audio Blob (WebM, OGG, MP4, etc.)
- * to standard 16kHz 16-bit Mono PCM WAV Blob suitable for ASR models like DashScope Paraformer.
+ * to standard 16kHz 16-bit Mono PCM WAV Blob suitable for ASR models like DashScope Qwen ASR.
  * @param {Blob} blob 
  * @returns {Promise<Blob>}
  */

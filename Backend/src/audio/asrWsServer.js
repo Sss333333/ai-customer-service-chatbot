@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from "ws";
-import { ParaformerClient } from "./paraformerWs.js";
+import { DashScopeAsrClient } from "./dashscopeAsr.js";
 
 /**
  * 挂载实时语音识别 WebSocket 桥接服务（/ws/asr 或 /api/ws/asr）
@@ -37,7 +37,7 @@ export function attachAsrWebSocketServer(server) {
     };
 
     try {
-      const client = new ParaformerClient();
+      const client = new DashScopeAsrClient();
       session = client.createRealtimeSession({
         onStarted: () => {
           sendJson({ type: "started" });

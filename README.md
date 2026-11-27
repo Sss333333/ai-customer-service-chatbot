@@ -13,7 +13,7 @@ An end-to-end AI customer service & after-sales support platform featuring strea
   - **LLM & Tool Calling**: Vercel AI SDK + OpenRouter (`streamText` with multi-step tool execution)
   - **RAG Knowledge Base**: PostgreSQL + `pgvector` + Drizzle ORM (`Backend/src/rag` & `Backend/setup`)
   - **ERP Integration**: In-process `netsuite-mcp` layer for SuiteQL queries and Support Case creation (`get_product_info`, `check_order_status`, `start_warranty_claim`, `check_case_status`)
-  - **Voice Pipeline**: DashScope Paraformer real-time ASR, Edge TTS streaming over WebSocket, and Gemini Live real-time voice translation for human calls
+  - **Voice Pipeline**: DashScope Qwen streaming ASR & TTS (`qwen-audio-3.1-asr-flash-streaming` / `qwen-audio-3.1-tts-flash`) over WebSocket, and Gemini Live real-time voice translation for human calls
 
 ## Quick Start
 
