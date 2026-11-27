@@ -41,7 +41,7 @@ export const FEATURE_TIPS = [
 ];
 
 /**
- * Balanced Left Sidebar: Compact 3D WebGL Avatar Card + Feature Tips Panel
+ * Left Sidebar: Compact 3D WebGL Avatar Card + Feature Tips Panel
  */
 export function AvatarPanel({
   status,
@@ -60,7 +60,6 @@ export function AvatarPanel({
   currentToolLabel,
   isCallActive,
   callState,
-  humanMode,
   collapsed = false,
   onToggleCollapse,
 }) {
@@ -76,15 +75,11 @@ export function AvatarPanel({
   }, [collapsed]);
 
   const isAudioAnimating =
-    humanMode === 'ai' &&
-    (isSpeaking || (isCallActive && callState === 'speaking'));
+    isSpeaking || (isCallActive && callState === 'speaking');
 
   const statusText = (() => {
-    if (humanMode === 'connected') return 'Specialist call active';
-    if (humanMode === 'ringing') return 'Calling specialist…';
     if (status === 'loading') return `Loading 3D (${loadPercent}%)…`;
     if (isSpeaking) return 'Speaking…';
-    if (isCallActive && callState === 'speaking') return 'Listening…';
     if (isCallActive) return 'Listening…';
     if (currentToolLabel) return currentToolLabel;
     if (isAwaitingResponse) return 'Thinking…';
@@ -92,7 +87,6 @@ export function AvatarPanel({
   })();
 
   const showReadyDot =
-    humanMode === 'ai' &&
     isConnected &&
     status !== 'loading' &&
     !isSpeaking &&
@@ -128,7 +122,7 @@ export function AvatarPanel({
           )}
         />
 
-        {/* Minimalist Non-Photo Standby Surface (when 3D WebGL is off or loading) */}
+        {/* Minimalist Standby Surface (only when 3D WebGL is paused or loading) */}
         {!isConnected && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-[#F5F4F0] to-[#EAE7E0] px-6 text-center">
             <div className="mb-3 flex size-14 items-center justify-center rounded-full border border-[#DFDCD4] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
@@ -165,7 +159,7 @@ export function AvatarPanel({
           </div>
         )}
 
-        {/* Top-Left: Single Eye Icon to Hide Avatar Panel */}
+        {/* Top-Left: Single Eye Icon to Hide Side Panel */}
         {onToggleCollapse && (
           <div className="absolute top-3 left-3 z-20">
             <button
@@ -180,7 +174,7 @@ export function AvatarPanel({
           </div>
         )}
 
-        {/* Top-Right: Crisp High-Contrast 3D Live Toggle */}
+        {/* Top-Right: Always Keep Initial 3D Live Badge when Connected */}
         {isConnected && (
           <div className="absolute top-3 right-3 z-20">
             <button
@@ -207,12 +201,7 @@ export function AvatarPanel({
           </button>
         )}
 
-        {/* Human Specialist Call Dimmer */}
-        {humanMode !== 'ai' && (
-          <div className="absolute inset-0 z-10 bg-black/20 backdrop-blur-[2px] transition-opacity" />
-        )}
-
-        {/* Bottom High-Contrast Frosted Ivory Status Pill */}
+        {/* Bottom High-Contrast Status Pill */}
         {(isConnected || isSpeaking || isCallActive || isAwaitingResponse) && (
           <div className="absolute inset-x-3.5 bottom-3.5 z-20 flex justify-center">
             <div className="flex max-w-full items-center gap-2.5 rounded-full border border-[#D8D4CB] bg-white/95 px-4 py-2 text-[#18181B] shadow-[0_4px_16px_rgba(0,0,0,0.09)] backdrop-blur-md">

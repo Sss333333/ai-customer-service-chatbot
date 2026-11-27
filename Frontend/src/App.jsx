@@ -262,6 +262,7 @@ export default function App() {
     isMuted: humanMuted,
     micLevel: humanMicLevel,
     callError: humanCallError,
+    setCallError: setHumanCallError,
     startCall: startHumanCall,
     sendText: sendHumanText,
     hangup: hangupHumanCall,
@@ -641,7 +642,6 @@ export default function App() {
           currentToolLabel={currentToolCall ? TOOL_STATUS_LABELS[currentToolCall] : null}
           isCallActive={isCallActive}
           callState={callState}
-          humanMode={humanMode}
           collapsed={stageCollapsed}
           onToggleCollapse={() => setStageCollapsed((v) => !v)}
         />
@@ -1144,16 +1144,26 @@ export default function App() {
                 {displayError && (
                   <div className="flex max-w-full items-center gap-3 self-center rounded-2xl border border-[#E5C9C9] bg-[#FDF5F5] px-4 py-2.5 text-center text-[13px] text-[#8F3A3A]">
                     <span>{displayError}</span>
-                    <button
-                      type="button"
-                      className="cursor-pointer rounded-full border border-[#D8A8A8] bg-white px-3 py-0.5 text-xs font-medium text-[#8F3A3A] hover:bg-[#FCF0F0]"
-                      onClick={() => {
-                        setLocalError(null);
-                        regenerate();
-                      }}
-                    >
-                      Retry
-                    </button>
+                    {humanCallError ? (
+                      <button
+                        type="button"
+                        className="cursor-pointer rounded-full border border-[#D8A8A8] bg-white px-3 py-0.5 text-xs font-medium text-[#8F3A3A] hover:bg-[#FCF0F0]"
+                        onClick={() => setHumanCallError(null)}
+                      >
+                        Dismiss
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="cursor-pointer rounded-full border border-[#D8A8A8] bg-white px-3 py-0.5 text-xs font-medium text-[#8F3A3A] hover:bg-[#FCF0F0]"
+                        onClick={() => {
+                          setLocalError(null);
+                          regenerate();
+                        }}
+                      >
+                        Retry
+                      </button>
+                    )}
                   </div>
                 )}
 

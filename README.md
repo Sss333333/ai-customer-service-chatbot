@@ -1,35 +1,168 @@
-# AI Customer Service Chatbot
+# Nova — AI 3D Digital Human Customer Service Platform
 
-An end-to-end AI customer service & after-sales support platform featuring streaming LLM conversations, pgvector RAG knowledge base retrieval, NetSuite ERP tool integration (via in-process MCP), real-time voice input/output (ASR & TTS), and a human agent handoff console.
+An end-to-end multimodal AI customer service and after-sales support platform featuring an **in-browser WebGL 3D Gaussian Splatting Digital Human (driven by in-process ONNX `audio2exp`)**, **streaming multi-step LLM reasoning**, **Supabase `pgvector` RAG knowledge base retrieval**, **live ERP order/inventory/case integration**, **hands-free real-time voice calls with barge-in**, and a **3-column live voice translation Specialist Workspace (`/agent`)**.
 
-## Architecture
+---
 
-- **`Frontend/`** — React 19 + Vite + Tailwind CSS SPA
-  - Streaming AI chat UI powered by `@ai-sdk/react` (`useChat`) and `streamdown`
-  - Image/video attachment upload via pre-signed S3 URLs
-  - Real-time voice input (WebSocket ASR) and auto-speak voice playback (WebSocket TTS with barge-in support)
-  - Live human agent call & console (`/agent`)
-- **`Backend/`** — Node.js (ESM) backend supporting both local HTTP/WebSocket server and AWS SAM Lambda deployment
-  - **LLM & Tool Calling**: Vercel AI SDK + OpenRouter (`streamText` with multi-step tool execution)
-  - **RAG Knowledge Base**: PostgreSQL + `pgvector` + Drizzle ORM (`Backend/src/rag` & `Backend/setup`)
-  - **ERP Integration**: In-process `netsuite-mcp` layer for SuiteQL queries and Support Case creation (`get_product_info`, `check_order_status`, `start_warranty_claim`, `check_case_status`)
-  - **Voice Pipeline**: DashScope Qwen streaming ASR & TTS (`qwen-audio-3.1-asr-flash-streaming` / `qwen-audio-3.1-tts-flash`) over WebSocket, and Gemini Live real-time voice translation for human calls
+## Live UI Showcase
+
+### 1. Customer Portal — 3D Avatar Stage, Quick Tips & Guided Entry (`/`)
+The left sidebar pairs a live 30fps WebGL 3D Gaussian Splatting avatar stage (supporting scroll-to-zoom, one-click panel hide/show, and live audio waveform feedback) with a persistent **Features & Tips** guide. The right workspace provides a minimalist conversational interface with quick-start enquiry cards.
+
+![Nova Support — Welcome & 3D Avatar Stage](./docs/images/showcase-welcome.png)
+
+### 2. Conversational Stream — Bespoke Avatars, Database Tool Trace & Reasoning
+Whenever Nova queries the **Supabase `pgvector` knowledge base** or **ERP system**, an expandable trace pill appears directly above the response (click to inspect query inputs and matched records). Validated orders, state warehouse stock, and support cases automatically render as clean structured UI cards.
+
+![Nova Support — RAG Database Trace & Chat Stream](./docs/images/showcase-chat-rag.png)
+
+### 3. 3-Column Specialist Workspace — Live Bidirectional Voice Translation (`/agent`)
+Customers can escalate to a human specialist at any time via **Speak to Specialist**. The `/agent` workspace equips support specialists with incoming call management, one-click quick responses, real-time bidirectional voice translation (**English Customer ⇄ Mandarin Specialist**) with live captions, an **AI Handoff Summary**, and automatically extracted **Case Context** (Order IDs, SKUs, and Case references).
+
+![Nova Specialist Workspace — 3-Column Agent Console](./docs/images/showcase-agent-workspace.png)
+
+---
+
+## Key Features
+
+### 1. In-Process ONNX 3D Digital Human (`LAM 3D Gaussian Splatting`)
+- **Zero-Python Local Inference**: The Node.js backend runs `onnxruntime-node` in-process against `lam_audio2exp.onnx`, decoding synthesized speech via bundled `ffmpeg` and generating **30fps, 52-channel ARKit blendshape weights** in real time.
+- **Hardware-Clock Lip Sync & Barge-in**: Synchronized expression frames and 24kHz PCM audio stream over WebSocket (`/ws/lam-client/:sessionId`) to `gaussian-splat-renderer-for-lam` in the browser, consuming zero server GPU/CPU while idle and supporting instant interruption (barge-in).
+- **Custom Avatar Assets**: Swap in any LAM-compatible `.zip` character package (see [LAM_CUSTOM_AVATAR_GUIDE.md](./LAM_CUSTOM_AVATAR_GUIDE.md)). The chat UI automatically captures a live portrait thumbnail from the WebGL stage on initial load.
+
+### 2. Supabase `pgvector` Semantic Knowledge Base (`RAG`)
+- Built on **PostgreSQL + `pgvector` + Drizzle ORM** to index warranty policies, defect eligibility rules, 72-hour transit damage requirements, and troubleshooting SOPs.
+- Parallel multi-query semantic recall (`getInformation`) deduplicates results by cosine similarity and automatically links visual batch-number location guides for mirrors, shaving cabinets, vanity drawers, and outer cartons.
+
+### 3. Live ERP Integration & Structured UI Cards
+Powered by an in-process **ERP MCP tool layer** with role-separated read/write credentials. Tool outputs render natively as structured cards in the chat stream:
+
+| Tool Name | Capability | Frontend Presentation |
+| :--- | :--- | :--- |
+| `getInformation` | Semantic vector search across warranty & troubleshooting SOPs in Supabase `pgvector` | Expandable database trace pill showing match count & recalled snippets |
+| `check_order_status` | Live ERP lookup of sales orders, item fulfillments, carriers, and tracking numbers | Expandable trace pill + **Order & Dispatch Card** (with 1-click tracking copy) |
+| `get_product_info` | Live ERP lookup of SKU specs, dimensions, RRP (AUD), and `NSW / QLD / VIC` stock levels | Expandable trace pill + **Product & State Warehouse Stock Card** |
+| `start_warranty_claim` | Creates a formal `Support Case` in the ERP with strict **customer-typed email provenance validation** (preventing accidental extraction of store emails from uploaded invoices) | Expandable trace pill + **Support Case Confirmation Card** |
+| `check_case_status` | Verifies existing ERP support case progress and outstanding items via Case Number + Email | Expandable trace pill + **Support Case Status Card** |
+
+### 4. Full-Duplex Voice & Multimodal Evidence Pipeline
+- **Hands-Free Live Voice Call (`Voice Call` / `/ws/live-ai`)**: End-to-end low-latency voice conversation powered by Gemini Live, inheriting prior chat context, executing ERP/RAG tools mid-call, supporting natural mid-sentence barge-in, and driving the 3D avatar.
+- **Hold-to-Speak Dictation (`/ws/asr`)**: Real-time 16kHz PCM streaming speech-to-text powered by DashScope Qwen (`qwen-audio-3.1-asr-flash-streaming`) with a live floating caption popover.
+- **Streaming Voice Playback & Graceful Fallback (`/ws/tts`)**: Sentence-chunked TTS synthesis drives the 3D avatar when connected, and automatically falls back to browser `MediaSource` streaming audio when 3D mode is paused.
+- **Direct S3 Evidence Upload (`/upload-url`)**: Supports client-side resized photo previews (passed directly to multimodal vision), fault videos, and PDF purchase invoices uploaded via pre-signed S3 PUT URLs (with local mock fallback for development).
+
+### 5. Cross-Language Human Specialist Handoff (`/agent`)
+- **1-on-1 Live Voice Translation (`/ws/human`)**: Seamless escalation from AI chat to a live specialist with real-time bidirectional speech-to-speech translation and live bilingual captions.
+- **Context Continuity**: Automatically transfers recent AI conversation turns into the specialist's **AI Handoff Summary** and highlights referenced `SO-…` orders, `SKU-…` products, and `CASE…` numbers under **Case Context**.
+
+---
+
+## System Architecture
+
+```mermaid
+flowchart LR
+  subgraph FE["Frontend (React 19 + Vite + Tailwind CSS)"]
+    Portal["Customer Portal (/)\n3D Stage + Rich Chat + Pill Composer"]
+    AgentUI["Specialist Workspace (/agent)\n3-Column Live Translation Console"]
+  end
+
+  subgraph BE["Backend (Node.js ESM · HTTP + WebSocket)"]
+    ChatAPI["POST /chat\nVercel AI SDK + OpenRouter"]
+    LAM["In-Process LAM Engine\nonnxruntime-node (audio2exp)"]
+    VoiceWS["WebSocket Hub\n/ws/live-ai · /ws/asr · /ws/tts · /ws/human"]
+    Tools["ERP & RAG Tool Layer\nERP MCP + Drizzle ORM"]
+  end
+
+  subgraph EXT["External Cloud & Data Services"]
+    Supabase[("Supabase PostgreSQL\npgvector Knowledge Base")]
+    ERP[("Enterprise ERP\nOrders, Stock & Support Cases")]
+    AudioAI["DashScope ASR/TTS\n& Gemini Live Audio"]
+    S3[("AWS S3\nClaim Evidence Storage")]
+  end
+
+  Portal -- "SSE Stream (/chat)" --> ChatAPI
+  Portal -- "30fps ARKit + 24kHz PCM" --> LAM
+  Portal -- "16kHz/24kHz PCM Audio" --> VoiceWS
+  AgentUI -- "Bidirectional /ws/human" --> VoiceWS
+
+  ChatAPI --> Tools
+  ChatAPI -- "Sentence TTS Stream" --> LAM
+  Tools --> Supabase
+  Tools --> ERP
+  VoiceWS --> AudioAI
+  VoiceWS --> LAM
+  Portal -- "Pre-signed PUT" --> S3
+```
+
+---
+
+## Project Structure
+
+```text
+AIChatBot-LAM-ONNX/
+├── Frontend/                        # React 19 + Vite + Tailwind CSS SPA
+│   ├── public/                      # Static assets, batch label guides (/guidance) & 3D avatar thumbnail
+│   └── src/
+│       ├── App.jsx                  # Customer Portal main view (/)
+│       ├── pages/AgentConsole.jsx   # 3-Column Specialist Workspace (/agent)
+│       ├── components/
+│       │   ├── AvatarPanel.jsx      # 3D WebGL avatar stage & Features/Tips sidebar
+│       │   ├── ToolResultCard.jsx   # Expandable DB/ERP trace pills & structured Order/Stock/Case cards
+│       │   └── VoiceInputButton.jsx # Hold-to-speak streaming ASR button & live caption popover
+│       └── hooks/                   # Hooks for LAM WebGL, Live Call, Human Handoff, ASR & TTS
+├── Backend/                         # Node.js (ESM) server (local HTTP/WS & AWS SAM Lambda)
+│   ├── assets/lam/                  # ONNX model (lam_audio2exp.onnx) & 3D character asset (.zip)
+│   ├── setup/                       # Model downloader, pgvector DB seeder (seed.js) & RAG test scripts
+│   └── src/
+│       ├── index.js                 # Unified HTTP + multi-WebSocket server entrypoint
+│       ├── ai/                      # OpenRouter streaming orchestration & warranty SOP system prompt
+│       ├── avatar/                  # In-process ONNX inference, audio decoder & /ws/lam-client service
+│       ├── audio/                   # DashScope ASR/TTS, Gemini Live voice call & human translation WS
+│       ├── erp/                     # In-process ERP MCP client & order/product/warranty tools
+│       └── rag/                     # Supabase PostgreSQL + pgvector schema, embeddings & recall
+├── docs/images/                     # Live application UI screenshots
+└── LAM_CUSTOM_AVATAR_GUIDE.md       # Guide for generating & exporting custom LAM 3D avatars
+```
+
+---
 
 ## Quick Start
+
+### Prerequisites
+- **Node.js** `>= 20.x`
+- **PostgreSQL (Supabase)** with the `vector` (`pgvector`) extension enabled
 
 ### 1. Backend Setup
 
 ```bash
 cd Backend
 cp .env.example .env
-# Fill in your API keys and database/ERP credentials in .env
 npm install
+```
+
+Configure your credentials in `Backend/.env` (never commit `.env` or real API keys):
+- `OPENROUTER_API_KEY` — LLM chat completion & text embedding provider
+- `DATABASE_URL` — Supabase PostgreSQL connection string
+- `DASHSCOPE_API_KEY` — Real-time streaming ASR & TTS synthesis
+- `GEMINI_API_KEY` — Hands-free `Voice Call` & `/agent` live voice translation
+- ERP integration credentials (see `Backend/.env.example`)
+
+(Optional) Download the ONNX avatar model if not present and seed the RAG knowledge base:
+
+```bash
+npm run download:model
+npm run db:seed
+```
+
+Start the backend server (listens on `http://localhost:8080` by default):
+
+```bash
 npm run dev
 ```
 
-The backend listens on `http://localhost:8080` by default. LAM avatar audio decoding uses the bundled `ffmpeg-static` dependency, so no system-wide ffmpeg installation is needed; set `FFMPEG_PATH` to override the binary.
-
 ### 2. Frontend Setup
+
+In a new terminal:
 
 ```bash
 cd Frontend
@@ -37,216 +170,53 @@ npm install
 npm run dev
 ```
 
-The frontend runs on `http://localhost:5173` and proxies API/WebSocket requests to the backend.
-
-### 3. Optional: Seed RAG Knowledge Base
-
-Configure `DATABASE_URL` (PostgreSQL with `pgvector` extension enabled) and `OPENROUTER_API_KEY` in `Backend/.env`, then run:
-
-```bash
-cd Backend
-npm run db:seed
-```
-
-## Security Notes
-
-- Never commit `.env` files or real API keys. Use `Backend/.env.example` as a template.
-- NetSuite custom field identifiers in `Backend/src/erp/tools/getProductInfo.js` and `Backend/src/erp/netsuite.js` are placeholder names (`custitem_custom_*`, `custevent_case_evidence_link`); update them to match your NetSuite account schema before deploying.
+Open in your browser:
+- **Customer Support Portal**: `http://localhost:5173`
+- **Specialist Workspace**: `http://localhost:5173/agent`
 
 ---
 
-## 在 CNB 工作区中运行代理（中文说明）
+## HTTP & WebSocket Endpoints
 
-人工通话里的 Gemini Live 实时翻译会按出口 IP 判断地区。如果工作区出口地区不受支持，WebSocket 会在握手阶段返回 `code=1007 User location is not supported for the API use.`。Windows 本地 Clash 的 `127.0.0.1:7890` 在 CNB 容器里指向容器自身，不能在容器中直接使用，因此采用“在容器内运行代理客户端”的方式。
+| Protocol | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/chat` (`/api/chat`) | Vercel AI SDK streaming chat, multi-step ERP/RAG tool execution & TTS/avatar side-channel |
+| `POST` | `/upload-url` | Generates pre-signed S3 PUT URLs for photo, video, and PDF attachments |
+| `POST` | `/api/avatar/interrupt` | Interrupts active TTS synthesis and clears the 3D avatar speech queue |
+| `GET` | `/lam/initconfig` · `/lam/asset/:file` | Serves 3D avatar ARKit channel metadata and `.zip` Gaussian Splatting assets |
+| `WS` | `/ws/lam-client/:sessionId` | Streams synchronized 30fps ARKit blendshape frames and 24kHz PCM audio |
+| `WS` | `/ws/live-ai` | Full-duplex Gemini Live voice conversation channel |
+| `WS` | `/ws/asr` | DashScope 16kHz PCM streaming speech-to-text channel |
+| `WS` | `/ws/tts` | DashScope streaming TTS fallback channel when 3D avatar is paused |
+| `WS` | `/ws/human` | 1-on-1 customer-to-specialist live voice translation and text channel |
 
-当前代码已调整为：**只有显式配置 `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` 时才走代理**，不再默认使用 `http://127.0.0.1:7890`，避免出现 `ECONNREFUSED 127.0.0.1:7890`。
+---
 
-### 1. 下载 Clash Meta / Mihomo 内核
+## Security & Cloud Environment Notes
 
-在 CNB 终端执行（架构按实际 `uname -m` 选择，当前环境为 `x86_64`）：
+- Never commit `.env` files, proxy subscriptions, or real API keys. Use `Backend/.env.example` as a template.
+- Update placeholder ERP custom field identifiers (`custitem_custom_*`, `custevent_case_evidence_link`) in `Backend/src/erp/` to match your ERP account schema before production deployment.
+- See [Backend/README.md](./Backend/README.md) for AWS SAM deployment details and [LAM_CUSTOM_AVATAR_GUIDE.md](./LAM_CUSTOM_AVATAR_GUIDE.md) for creating custom 3D avatars.
+
+<details>
+<summary><strong>Cloud Development Workspace Proxy & GitHub Auto-Sync (CNB)</strong></summary>
+
+### 1. Optional HTTP Proxy for Region-Restricted Gemini Live Endpoints
+Gemini Live checks the egress IP region during the WebSocket handshake (`code=1007` if unsupported). The backend only routes through a proxy when `HTTPS_PROXY`, `HTTP_PROXY`, or `ALL_PROXY` is explicitly set in `Backend/.env`:
 
 ```bash
-mkdir -p /workspace/proxy
-cd /workspace/proxy
+mkdir -p /workspace/proxy && cd /workspace/proxy
 curl -L --fail -o mihomo.gz \
   https://github.com/MetaCubeX/mihomo/releases/download/v1.19.34/mihomo-linux-amd64-compatible-v1.19.34.gz
-gunzip -f mihomo.gz
-chmod +x mihomo
-./mihomo -v
-```
-
-### 2. 放入节点配置
-
-从本地 Clash 客户端导出配置，或使用订阅链接下载到 `/workspace/proxy/config.yaml`。注意不要提交该文件，也不要在聊天/工区公开订阅链接。
-
-确保配置中包含 HTTP 代理端口，例如：
-
-```yaml
-mixed-port: 7890
-```
-
-校验配置：
-
-```bash
-cd /workspace/proxy
+gunzip -f mihomo.gz && chmod +x mihomo
+# Place your proxy config at /workspace/proxy/config.yaml (with mixed-port: 7890; never commit to Git)
 ./mihomo -d . -t
-```
-
-### 3. 启动代理
-
-前台启动：
-
-```bash
-cd /workspace/proxy
-./mihomo -d .
-```
-
-后台启动：
-
-```bash
-cd /workspace/proxy
 nohup ./mihomo -d . > mihomo.log 2>&1 &
 ```
 
-看到类似日志即表示成功：
+Then enable `HTTPS_PROXY=http://127.0.0.1:7890` in `Backend/.env` and restart `npm run dev` (or run `bash /workspace/Backend/setup/setup-proxy.sh` to restore roaming configs from `/root/.cnb/`).
 
-```
-Mixed(http+socks) proxy listening at: [::]:7890
-```
+### 2. Automatic GitHub Mirroring via `.cnb.yml`
+The repository includes `.cnb.yml` using `tencentcom/git-sync`. Store `GITHUB_REPO_URL`, `GIT_USERNAME`, and `GIT_ACCESS_TOKEN` in a private CNB secret repository (`github-sync.yml`), and replace `YOUR_SECRET_REPO_SLUG` in `.cnb.yml` to automatically mirror pushes on `main` to GitHub.
 
-### 4. 选择 Gemini 支持的出口节点
-
-如果配置里有多个节点，可以通过 Clash 的 RESTful API 切换节点组（假设 `external-controller: "127.0.0.1:9090"`）：
-
-```bash
-GROUP=$(node -e "process.stdout.write(encodeURIComponent('🚀 节点选择'))")
-curl -sS -X PUT "http://127.0.0.1:9090/proxies/$GROUP" \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"🇺🇲 美国 01"}'
-```
-
-验证出口地区：
-
-```bash
-curl -x http://127.0.0.1:7890 https://ipinfo.io/json
-```
-
-返回的 `country` 必须是 Gemini Live 支持的地区。香港节点实测仍会触发 `1007`，美国节点实测可完成握手。
-
-### 5. 让后端使用代理
-
-在 `Backend/.env` 中启用：
-
-```env
-HTTPS_PROXY=http://127.0.0.1:7890
-```
-
-然后重启后端，使 `dotenv` 重新加载配置：
-
-```bash
-cd /workspace/Backend
-npm run dev
-```
-
-最后刷新前端页面，重新进入人工通话/实时翻译即可。
-
-### 6. 安全与持久化
-
-- `Backend/.env` 已由 `.env` 规则忽略。
-- 整个 `proxy/` 目录已加入 `.gitignore`，包括 `config.yaml`、`config.example.yaml`、内核和日志，避免提交 API key 或代理订阅信息。
-- 如果这些文件曾经提交过，需要立即轮换 API key / 订阅链接并清理 git 历史。
-- CNB 工作区重启后，后台运行的 `mihomo` 不会自动恢复，需要按第 3 步重新启动。
-
-### 7. 新环境一键恢复（文件漫游）
-
-CNB 云开发环境在闲置销毁后重建时，`.gitignore` 忽略的文件**不会进入代码备份**，所以 `proxy/` 和 `Backend/.env` 都不会自动恢复。推荐把敏感文件放到 CNB 文件漫游目录，再用仓库里的脚本一键恢复。
-
-1. 在 **个人设置 → 云原生开发** 的自定义漫游路径中加入：
-
-```text
-/root/.cnb
-/root/.cnb/*
-```
-
-2. 把敏感文件保存到漫游目录（不要放进 git）：
-
-```text
-/root/.cnb/proxy-config.yaml    # Clash / Mihomo 订阅配置
-/root/.cnb/backend.env          # 只写需要恢复的 KEY=VALUE
-```
-
-`backend.env` 示例（不要填真实值到 README 或提交到仓库）：
-
-```env
-OPENROUTER_API_KEY=your-openrouter-api-key
-GEMINI_API_KEY=your-gemini-api-key
-DASHSCOPE_API_KEY=your-dashscope-api-key
-DATABASE_URL=postgresql://user:password@host:5432/db
-```
-
-3. 新环境启动后执行一键脚本：
-
-```bash
-bash /workspace/Backend/setup/setup-proxy.sh
-```
-
-脚本会自动完成：
-
-- 下载 `mihomo` 内核（若不存在）
-- 从漫游目录复制代理配置并校验
-- 创建/补齐 `Backend/.env`
-- 启用 `HTTPS_PROXY=http://127.0.0.1:7890`
-- 后台启动 `mihomo` 并打印出口 IP
-
-4. 在另一个终端重启后端：
-
-```bash
-cd /workspace/Backend
-npm run dev
-```
-
-注意：不要用 `kill 1` 关闭开发环境，否则漫游不会保存；同时打开多个环境时，后销毁的环境漫游内容会覆盖先销毁的环境。
-
-### 8. CNB 自动同步到 GitHub
-
-仓库里已添加 `.cnb.yml`，使用 CNB 官方 `tencentcom/git-sync` 插件，在 `main` 分支 push 时自动同步到 GitHub。
-
-首次使用需要完成两步：
-
-1. 创建一个 **CNB 密钥仓库**，并在其中新建文件 `github-sync.yml`：
-
-```yaml
-allow_slugs:
-  - "kefu-2026/ai-customer-service-chatbot"
-allow_events:
-  - "push"
-allow_branches:
-  - "main"
-
-GITHUB_REPO_URL: "https://github.com/<用户名>/<仓库名>.git"
-GIT_USERNAME: "<GitHub 用户名>"
-GIT_ACCESS_TOKEN: "<GitHub Personal Access Token，需 repo 权限>"
-```
-
-2. 编辑根目录 `.cnb.yml`，把 `YOUR_SECRET_REPO_SLUG` 替换为你的密钥仓库 slug（形如 `用户名/仓库名`）：
-
-```yaml
-imports:
-  - https://cnb.build/YOUR_SECRET_REPO_SLUG/-/blob/main/github-sync.yml
-```
-
-3. 提交并推送到 CNB：
-
-```bash
-git add .cnb.yml
-git commit -m "chore: add github sync pipeline"
-git push origin main
-```
-
-之后每次 push 到 CNB 的 `main` 分支，都会自动同步到 GitHub。
-
-注意：
-
-- GitHub token 只能放在密钥仓库，不要写进普通仓库。
-- 当前配置 `force: false`，避免覆盖 GitHub 历史；确认要以 CNB 为准时再改为 `true`。
-- 当前只同步 `main` 分支，不推送 tags；需要 tags 时把 `push_tags` 改为 `true`。
+</details>
