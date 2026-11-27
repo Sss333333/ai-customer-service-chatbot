@@ -1,8 +1,16 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { createGeminiLiveTranslateSession } from "./geminiLiveTranslate.js";
+import {
+  hasLamClient,
+  sendAvatarAudioBuffer,
+  sendAvatarInterrupt,
+  sendAvatarSpeechEnd,
+  sendAvatarSpeechStart,
+} from "../avatar/lamService.js";
 
 const SESSION_MAX_AGE_MS = 90_000;
 const ROTATION_IDLE_MS = 1_200;
+const HUMAN_AVATAR_FLUSH_IDLE_MS = 550;
 
 function nowTime() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -46,13 +54,124 @@ export function attachHumanCallWebSocketServer(server) {
     },
   };
 
+  // 人工客服译文音频 -> 客户侧 LAM 3D 数字人状态管理
+  const customerAvatar = {
+    turnCounter: 0,
+    active: false,
+    speechId: null,
+    caseRef: null,
+    initPromise: null,
+    idleTimer: null,
+    audioChain: Promise.resolve(),
+  };
+
+  function clearCustomerAvatarTimer() {
+    if (customerAvatar.idleTimer) {
+      clearTimeout(customerAvatar.idleTimer);
+      customerAvatar.idleTimer = null;
+    }
+  }
+
+  async function flushCustomerAvatarTurn() {
+    clearCustomerAvatarTimer();
+    if (customerAvatar.initPromise) {
+      await customerAvatar.initPromise.catch(() => { });
+    }
+    if (customerAvatar.active && customerAvatar.caseRef && customerAvatar.speechId) {
+      const sid = customerAvatar.speechId;
+      const cid = customerAvatar.caseRef;
+      customerAvatar.active = false;
+      customerAvatar.speechId = null;
+      customerAvatar.caseRef = null;
+      await sendAvatarSpeechEnd(cid, sid).catch(() => { });
+    }
+  }
+
+  function interruptCustomerAvatar(caseRef) {
+    clearCustomerAvatarTimer();
+    const targetCaseRef = caseRef || customerAvatar.caseRef;
+    customerAvatar.active = false;
+    customerAvatar.speechId = null;
+    customerAvatar.caseRef = null;
+    customerAvatar.initPromise = null;
+    if (targetCaseRef) {
+      sendAvatarInterrupt(targetCaseRef).catch(() => { });
+    }
+  }
+
+  function forwardAgentAudioToCustomer(listener, audio) {
+    const caseRef = listener?.caseRef;
+    if (!caseRef || !hasLamClient(caseRef)) {
+      sendBinary(listener?.ws, audio);
+      return;
+    }
+
+    customerAvatar.audioChain = customerAvatar.audioChain
+      .then(async () => {
+        if (room.status !== "connected" || room.customer?.caseRef !== caseRef) return;
+
+        if (!customerAvatar.active || customerAvatar.caseRef !== caseRef) {
+          if (!customerAvatar.initPromise) {
+            const speechId = `${caseRef}:human:${++customerAvatar.turnCounter}`;
+            customerAvatar.initPromise = sendAvatarSpeechStart(caseRef, speechId, "pcm24k", {
+              sliceMs: 400,
+            })
+              .then((ok) => {
+                customerAvatar.initPromise = null;
+                if (ok) {
+                  customerAvatar.active = true;
+                  customerAvatar.speechId = speechId;
+                  customerAvatar.caseRef = caseRef;
+                }
+                return ok;
+              })
+              .catch(() => {
+                customerAvatar.initPromise = null;
+                return false;
+              });
+          }
+          const ok = await customerAvatar.initPromise;
+          if (!ok) {
+            sendBinary(listener?.ws, audio);
+            return;
+          }
+        }
+
+        const pushed = await sendAvatarAudioBuffer(caseRef, audio);
+        if (!pushed) {
+          customerAvatar.active = false;
+          customerAvatar.speechId = null;
+          customerAvatar.caseRef = null;
+          sendBinary(listener?.ws, audio);
+          return;
+        }
+
+        // 空闲 550ms 无新译文音频分片则刷出尾音，让数字人自然闭嘴待机
+        clearCustomerAvatarTimer();
+        customerAvatar.idleTimer = setTimeout(() => {
+          customerAvatar.audioChain = customerAvatar.audioChain
+            .then(() => flushCustomerAvatarTurn())
+            .catch(() => { });
+        }, HUMAN_AVATAR_FLUSH_IDLE_MS);
+      })
+      .catch((err) => {
+        console.warn("[human-call] LAM avatar forward error:", err?.message || err);
+        sendBinary(listener?.ws, audio);
+      });
+  }
+
   function closeTranslateSession(speakerRole) {
     const entry = room.sessions[speakerRole];
     if (!entry) return;
     room.sessions[speakerRole] = null;
+    if (speakerRole === "agent") {
+      customerAvatar.audioChain = customerAvatar.audioChain
+        .then(() => flushCustomerAvatarTurn())
+        .catch(() => { });
+    }
     entry.promise
       .then((session) => session.close())
-      .catch(() => {});
+      .catch(() => { });
   }
 
   function closeAllTranslateSessions() {
@@ -130,7 +249,12 @@ export function attachHumanCallWebSocketServer(server) {
       onAudio({ audio }) {
         // 关键隔离：译文音频只发给对方，绝不回传给说话人
         const listener = getPeer(speakerRole);
-        sendBinary(listener?.ws, audio);
+        if (speakerRole === "agent") {
+          // 人工客服译文音频优先直推客户侧 LAM 3D 数字人（音画同步，无重音；未连数字人时自动降级回 /ws/human）
+          forwardAgentAudioToCustomer(listener, audio);
+        } else {
+          sendBinary(listener?.ws, audio);
+        }
       },
       onError(err) {
         broadcastBoth({
@@ -175,19 +299,20 @@ export function attachHumanCallWebSocketServer(server) {
   function resetCall(reasonType, notifyPeerRole) {
     closeAllTranslateSessions();
     const prevCustomer = room.customer;
+    interruptCustomerAvatar(prevCustomer?.caseRef);
     room.customer = null;
     room.status = "idle";
 
     if (notifyPeerRole === "customer" && prevCustomer?.ws) {
       sendJson(prevCustomer.ws, { type: reasonType });
-      try { prevCustomer.ws.close(1000, reasonType); } catch {}
+      try { prevCustomer.ws.close(1000, reasonType); } catch { }
     } else if (notifyPeerRole === "agent" && room.agent?.ws) {
       sendJson(room.agent.ws, { type: reasonType });
       sendAgentLineState();
     } else if (notifyPeerRole === "both") {
       if (prevCustomer?.ws) {
         sendJson(prevCustomer.ws, { type: reasonType });
-        try { prevCustomer.ws.close(1000, reasonType); } catch {}
+        try { prevCustomer.ws.close(1000, reasonType); } catch { }
       }
       if (room.agent?.ws) {
         sendJson(room.agent.ws, { type: reasonType });
@@ -222,7 +347,7 @@ export function attachHumanCallWebSocketServer(server) {
 
       // 新的值班页替换旧的空闲值班连接
       if (room.agent && room.agent.ws !== ws) {
-        try { room.agent.ws.close(1000, "replaced_by_new_agent"); } catch {}
+        try { room.agent.ws.close(1000, "replaced_by_new_agent"); } catch { }
       }
       room.agent = { ws, name, lang };
       console.log(`[human-call] agent connected name=${name} lang=${lang}`);
@@ -319,7 +444,7 @@ export function attachHumanCallWebSocketServer(server) {
         type: "busy",
         message: "当前人工客服正在通话中，请稍后再试。",
       });
-      try { ws.close(1000, "busy"); } catch {}
+      try { ws.close(1000, "busy"); } catch { }
       return;
     }
 
