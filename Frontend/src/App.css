@@ -4,35 +4,35 @@
 
 @layer base {
   :root {
-    --background: 40 28% 98%;
-    --foreground: 40 10% 12%;
+    --background: 45 14% 96%;
+    --foreground: 240 6% 10%;
 
-    --card: 40 28% 98%;
-    --card-foreground: 40 10% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 10%;
 
-    --popover: 40 28% 98%;
-    --popover-foreground: 40 10% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 10%;
 
-    --primary: 164 33% 20%;
+    --primary: 240 6% 10%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 40 19% 92%;
-    --secondary-foreground: 40 10% 12%;
+    --secondary: 40 12% 94%;
+    --secondary-foreground: 240 6% 10%;
 
-    --muted: 40 19% 92%;
-    --muted-foreground: 34 6% 46%;
+    --muted: 40 12% 94%;
+    --muted-foreground: 25 5% 45%;
 
-    --accent: 40 19% 92%;
-    --accent-foreground: 40 10% 12%;
+    --accent: 40 12% 94%;
+    --accent-foreground: 240 6% 10%;
 
-    --destructive: 7 59% 34%;
+    --destructive: 0 52% 48%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 37 18% 84%;
-    --input: 37 18% 84%;
-    --ring: 164 33% 20%;
+    --border: 36 11% 89%;
+    --input: 36 11% 89%;
+    --ring: 240 6% 10%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
   }
 
   * {
@@ -41,18 +41,52 @@
   }
 
   body {
-    @apply m-0 bg-background text-foreground antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    @apply m-0 bg-[#EFEeeA] text-[#18181B] antialiased selection:bg-[#18181B]/10;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+}
+
+@keyframes novaWave {
+  0%, 100% {
+    transform: scaleY(0.32);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.nova-wave-bar {
+  animation: novaWave 1.05s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* Subtle custom scrollbars */
+.nova-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.nova-scroll::-webkit-scrollbar-thumb {
+  background: rgba(24, 24, 27, 0.12);
+  border-radius: 9999px;
+}
+
+.nova-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(24, 24, 27, 0.24);
+}
+
+.nova-scroll::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* Streamdown Markdown content styles inside message bubbles */
 .msg-bubble p {
-  @apply m-0;
+  @apply m-0 leading-[1.6];
 }
 
 .msg-bubble p + p {
-  @apply mt-1.5;
+  @apply mt-2;
 }
 
 .msg-bubble h1,
@@ -61,12 +95,12 @@
 .msg-bubble h4,
 .msg-bubble h5,
 .msg-bubble h6 {
-  @apply my-1 text-[15px] font-semibold;
+  @apply my-1.5 text-[15px] font-semibold tracking-[-0.01em];
 }
 
 .msg-bubble ul,
 .msg-bubble ol {
-  @apply my-1 pl-5;
+  @apply my-1.5 pl-5;
 }
 
 .msg-bubble ul {
@@ -78,11 +112,11 @@
 }
 
 .msg-bubble li {
-  @apply my-0.5;
+  @apply my-0.5 leading-[1.55];
 }
 
 .msg-bubble strong {
-  @apply font-bold text-black;
+  @apply font-semibold text-[#18181B];
 }
 
 .msg-user strong {
@@ -90,30 +124,30 @@
 }
 
 .msg-bubble code {
-  @apply rounded bg-black/[0.06] px-1.5 py-0.5 font-mono text-[13px];
+  @apply rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[12.5px];
 }
 
 .msg-user code {
-  @apply bg-white/[0.18];
+  @apply bg-white/[0.16];
 }
 
 .msg-bubble table {
-  @apply my-1.5 block overflow-x-auto border-collapse text-[13px];
+  @apply my-2 block overflow-x-auto border-collapse text-[13px];
 }
 
 .msg-bubble th,
 .msg-bubble td {
-  @apply whitespace-nowrap border border-black/10 px-2 py-1 text-left;
+  @apply whitespace-nowrap border border-[#E7E5E4] px-2.5 py-1.5 text-left;
 }
 
 .msg-bubble th {
-  @apply bg-black/[0.04] font-semibold;
+  @apply bg-[#F8F7F5] font-semibold;
 }
 
 .msg-bubble a {
-  @apply underline underline-offset-2;
+  @apply underline underline-offset-2 transition-opacity hover:opacity-75;
 }
 
 .msg-assistant a {
-  @apply font-semibold text-[#23453c];
+  @apply font-medium text-[#18181B];
 }

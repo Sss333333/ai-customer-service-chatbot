@@ -30,10 +30,15 @@ function getLamWebSocketUrl(sessionId) {
  * - 浏览器端 WebGL 实时渲染 (gaussian-splat-renderer-for-lam)
  * - Web Audio 硬件时钟精确同步口型与语音，打断毫秒级清空队列
  */
+const DEFAULT_CAMERA_ZOOM = 1.75;
+const MIN_CAMERA_ZOOM = 1.0;
+const MAX_CAMERA_ZOOM = 2.6;
+
 export function useLamAvatar({
   sessionId,
   autoConnect = false,
   chatState = 'Idle',
+  initialZoom = DEFAULT_CAMERA_ZOOM,
 } = {}) {
   // 'idle' | 'loading' | 'connected' | 'offline' | 'error'
   const [status, setStatus] = useState('idle');
@@ -42,9 +47,13 @@ export function useLamAvatar({
   const [isMuted, setIsMuted] = useState(false);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const [error, setError] = useState(null);
+  const [zoom, setZoomState] = useState(initialZoom);
 
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
+  const baseCamYRef = useRef(null);
+  const zoomRef = useRef(initialZoom);
+  zoomRef.current = zoom;
   const wsRef = useRef(null);
   const audioCtxRef = useRef(null);
   const gainNodeRef = useRef(null);
@@ -115,10 +124,60 @@ export function useLamAvatar({
         RendererCtor.instance = undefined;
       }
     }
+    baseCamYRef.current = null;
     if (containerRef.current) {
       containerRef.current.innerHTML = '';
     }
   }, [stopPlayback]);
+
+  const applyCameraFraming = useCallback((rendererInstance, targetZoom) => {
+    const r = rendererInstance || rendererRef.current;
+    const cam = r?.getCamera?.() || r?.viewer?.camera;
+    if (!cam) return;
+
+    if (baseCamYRef.current == null && typeof cam.position?.y === 'number') {
+      baseCamYRef.current = cam.position.y;
+    }
+
+    const clampedZoom = Math.min(
+      MAX_CAMERA_ZOOM,
+      Math.max(MIN_CAMERA_ZOOM, Number(targetZoom) || DEFAULT_CAMERA_ZOOM)
+    );
+
+    // Shift camera slightly downward as zoom increases so the head/bust stays centered above the status pill
+    if (baseCamYRef.current != null && cam.position) {
+      const yOffset = (clampedZoom - 1) * 0.032;
+      cam.position.y = baseCamYRef.current - yOffset;
+    }
+
+    const el = containerRef.current;
+    if (el && el.clientWidth > 0 && el.clientHeight > 0) {
+      cam.aspect = el.clientWidth / el.clientHeight;
+    }
+
+    cam.zoom = clampedZoom;
+    cam.updateProjectionMatrix?.();
+    r?.viewer?.forceRenderNextFrame?.();
+  }, []);
+
+  const setZoom = useCallback(
+    (nextZoomOrUpdater) => {
+      setZoomState((prev) => {
+        const raw =
+          typeof nextZoomOrUpdater === 'function'
+            ? nextZoomOrUpdater(prev)
+            : nextZoomOrUpdater;
+        const clamped = Math.min(
+          MAX_CAMERA_ZOOM,
+          Math.max(MIN_CAMERA_ZOOM, Math.round(Number(raw) * 100) / 100)
+        );
+        zoomRef.current = clamped;
+        applyCameraFraming(rendererRef.current, clamped);
+        return clamped;
+      });
+    },
+    [applyCameraFraming]
+  );
 
   const unlockAudio = useCallback(() => {
     const ctx = ensureAudioContext();
@@ -226,7 +285,7 @@ export function useLamAvatar({
     if (!sessionId) return;
     if (!isWebGLSupported()) {
       setStatus('offline');
-      setError('当前浏览器不支持 WebGL，已自动切回纯语音模式');
+      setError('WebGL is not supported in this browser. Switched to audio mode.');
       return;
     }
 
@@ -252,7 +311,7 @@ export function useLamAvatar({
         clearTimeout(timer);
         if (mySeq !== connectSeqRef.current) return;
         setStatus('offline');
-        setError('LAM 数字人服务未启动，已自动使用纯语音模式');
+        setError('3D avatar service offline — using voice mode');
         return;
       }
 
@@ -264,7 +323,7 @@ export function useLamAvatar({
 
       const container = containerRef.current;
       if (!container) {
-        throw new Error('3D 渲染容器未挂载');
+        throw new Error('3D stage container is not mounted');
       }
 
       // 2. 动态加载 3D Gaussian Splatting 渲染器（首次加载后缓存）
@@ -278,7 +337,7 @@ export function useLamAvatar({
       // 3. Load 3D Gaussian Splatting asset into WebGL
       const assetUrl = AVATAR_BASE ? `${AVATAR_BASE}${cfg.assetUrl}` : cfg.assetUrl;
       const renderer = await RendererCtor.getInstance(container, assetUrl, {
-        backgroundColor: '0xf4f1eb',
+        backgroundColor: '0xeae7e0',
         downloadProgress: (p) => {
           if (mySeq === connectSeqRef.current) {
             setLoadPercent(Math.round(p * 70));
@@ -287,6 +346,13 @@ export function useLamAvatar({
         loadProgress: (p) => {
           if (mySeq === connectSeqRef.current) {
             setLoadPercent(70 + Math.round(p * 30));
+            if (p >= 1) {
+              requestAnimationFrame(() => {
+                if (rendererRef.current) {
+                  applyCameraFraming(rendererRef.current, zoomRef.current);
+                }
+              });
+            }
           }
         },
         getChatState,
@@ -307,6 +373,7 @@ export function useLamAvatar({
       renderer.getChatState = getChatState;
       renderer.getExpressionData = getExpressionData;
       rendererRef.current = renderer;
+      applyCameraFraming(renderer, zoomRef.current);
       setLoadPercent(100);
 
       // 3. Connect pure WebSocket for synchronized expression + audio stream
@@ -357,15 +424,15 @@ export function useLamAvatar({
         if (mySeq !== connectSeqRef.current) return;
         stopPlayback();
         setStatus('offline');
-        setError('LAM WebSocket 连接断开');
+        setError('3D avatar WebSocket disconnected');
       };
     } catch (err) {
       if (mySeq !== connectSeqRef.current) return;
       cleanup();
       setStatus('error');
-      setError(err?.message || 'LAM 3D 数字人加载失败');
+      setError(err?.message || 'Failed to initialize 3D avatar');
     }
-  }, [cleanup, getChatState, getExpressionData, scheduleChunk, sessionId, stopPlayback]);
+  }, [applyCameraFraming, cleanup, getChatState, getExpressionData, scheduleChunk, sessionId, stopPlayback]);
 
   const disconnect = useCallback(() => {
     cleanup();
@@ -408,6 +475,19 @@ export function useLamAvatar({
     };
   }, [autoConnect, sessionId, connect, cleanup]);
 
+  // Keep Three.js camera aspect ratio & zoom synced when container resizes
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => {
+      if (rendererRef.current) {
+        applyCameraFraming(rendererRef.current, zoomRef.current);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [applyCameraFraming]);
+
   return {
     status,
     loadPercent,
@@ -416,6 +496,8 @@ export function useLamAvatar({
     isMuted,
     needsAudioUnlock,
     error,
+    zoom,
+    setZoom,
     containerRef,
     connect,
     disconnect,

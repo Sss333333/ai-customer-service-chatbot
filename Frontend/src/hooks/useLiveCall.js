@@ -107,7 +107,7 @@ export function useLiveCall({
 
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error("Gemini Live 实时通话连接超时"));
+          reject(new Error("Live voice connection timed out."));
         }, 15000);
 
         ws.onopen = () => {
@@ -173,7 +173,7 @@ export function useLiveCall({
               onTurnCompleteRef.current?.({ userText: uText, assistantText: aText });
             }
           } else if (msg.type === "error") {
-            const errMsg = msg.message || "Gemini Live 实时通话异常";
+            const errMsg = msg.message || "Live voice call encountered an error.";
             clearTimeout(timeout);
             setError(errMsg);
             reject(new Error(errMsg));
@@ -182,18 +182,18 @@ export function useLiveCall({
 
         ws.onerror = () => {
           clearTimeout(timeout);
-          reject(new Error("无法连接到实时通话服务 (/ws/live-ai)"));
+          reject(new Error("Could not connect to live voice service (/ws/live-ai)."));
         };
 
         ws.onclose = (ev) => {
           clearTimeout(timeout);
           if (wsRef.current === ws && activeRef.current) {
             if (ev.code !== 1000) {
-              setError(ev.reason || "实时通话连接已断开");
+              setError(ev.reason || "Live voice call disconnected.");
             }
             endCall();
           }
-          reject(new Error(ev.reason || "实时通话连接已关闭"));
+          reject(new Error(ev.reason || "Live voice connection closed."));
         };
       });
 
@@ -217,8 +217,8 @@ export function useLiveCall({
     } catch (err) {
       const msg =
         err?.name === "NotAllowedError"
-          ? "麦克风权限被拒绝，请在浏览器地址栏允许麦克风访问。"
-          : err?.message || "无法开启实时通话";
+          ? "Microphone permission was denied. Please allow microphone access in your browser."
+          : err?.message || "Unable to start live voice call.";
       setError(msg);
       endCall();
       return false;

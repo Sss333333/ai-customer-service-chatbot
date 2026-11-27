@@ -64,7 +64,8 @@ export function VoiceInputButton({
         return;
       }
       if (!isSupported) {
-        alert("Realtime audio recording is not supported in this browser.");
+        setTranscribeError("Voice recording is not supported in this browser.");
+        setTimeout(() => setTranscribeError(null), 3500);
         return;
       }
 
@@ -80,11 +81,12 @@ export function VoiceInputButton({
         }
       } catch (err) {
         isPressingRef.current = false;
-        alert(
+        setTranscribeError(
           err?.name === "NotAllowedError"
-            ? "Microphone permission was denied."
+            ? "Microphone access denied."
             : err?.message || "Could not start recording."
         );
+        setTimeout(() => setTranscribeError(null), 3500);
       }
     },
     [cancel, disabled, isFinalizing, isRecording, isSupported, start]
@@ -115,33 +117,33 @@ export function VoiceInputButton({
 
   return (
     <div className="relative inline-flex items-center">
-      {/* 录音进行中的实时字幕浮层 */}
+      {/* Live transcription popover while holding */}
       {(isRecording || isFinalizing) && (
-        <div className="absolute bottom-[calc(100%+10px)] left-0 z-50 w-[260px] sm:w-[340px] rounded-xl border border-[#3a362f] bg-[#211f1b] px-3.5 py-2.5 text-white shadow-xl">
-          <div className="flex items-center gap-2 text-[11px] font-medium text-white/80">
+        <div className="absolute bottom-[calc(100%+14px)] right-0 z-50 w-[260px] sm:w-[320px] rounded-2xl border border-white/10 bg-[#18181B]/95 px-4 py-3 text-white shadow-xl backdrop-blur-md">
+          <div className="flex items-center gap-2 text-[11.5px] font-medium text-white/70">
             <span
               className={cn(
                 "size-2 rounded-full",
-                isRecording ? "animate-ping bg-[#ef4444]" : "bg-emerald-400"
+                isRecording ? "animate-ping bg-rose-400" : "bg-emerald-400"
               )}
             />
             <span>
               {isRecording
-                ? `Listening ${Math.round(duration)}s · Release to finish`
-                : "Finalizing…"}
+                ? `Listening ${Math.round(duration)}s · Release to insert`
+                : "Transcribing…"}
             </span>
           </div>
-          <div className="mt-1.5 min-h-[20px] max-h-[84px] overflow-y-auto break-words text-sm leading-snug text-white">
+          <div className="mt-1.5 min-h-[20px] max-h-[84px] overflow-y-auto break-words text-[13.5px] leading-snug text-white">
             {liveText || (
-              <span className="text-white/50 italic">Speak now…</span>
+              <span className="text-white/45">Speak now…</span>
             )}
           </div>
         </div>
       )}
 
-      {/* 识别失败临时提示 */}
+      {/* Temporary error toast */}
       {transcribeError && (
-        <div className="absolute -top-9 left-0 z-50 max-w-[280px] truncate rounded bg-black/80 px-2.5 py-1 text-[11px] text-white shadow">
+        <div className="absolute bottom-[calc(100%+12px)] right-0 z-50 whitespace-nowrap rounded-lg bg-[#18181B] px-3 py-1.5 text-[12px] text-white shadow-md">
           {transcribeError}
         </div>
       )}
@@ -149,9 +151,9 @@ export function VoiceInputButton({
       <button
         type="button"
         className={cn(
-          "w-[44px] h-[44px] flex-none flex items-center justify-center cursor-pointer rounded-xl border border-[#ddd8d0] bg-white text-[#4a463f] transition-all disabled:cursor-default disabled:opacity-45 select-none touch-none",
-          isRecording && "bg-[#8a2f24] text-white border-[#8a2f24] scale-105 shadow-md",
-          isFinalizing && "cursor-wait opacity-80",
+          "flex size-9 flex-none cursor-pointer items-center justify-center rounded-full text-[#78716C] transition-all hover:bg-[#F4F3EF] hover:text-[#18181B] disabled:cursor-default disabled:opacity-35 select-none touch-none",
+          isRecording && "bg-[#18181B] text-white hover:bg-[#18181B] hover:text-white scale-105 shadow-sm",
+          isFinalizing && "cursor-wait opacity-70",
           className
         )}
         disabled={disabled || isFinalizing}
@@ -162,23 +164,23 @@ export function VoiceInputButton({
         onTouchCancel={handleCancelPress}
         title={
           isRecording
-            ? "Release to send voice"
+            ? "Release to insert text"
             : isFinalizing
               ? "Transcribing audio…"
               : "Hold to speak"
         }
         aria-label={
           isRecording
-            ? "Release to send voice"
+            ? "Release to insert text"
             : isFinalizing
               ? "Transcribing audio…"
               : "Hold to speak"
         }
       >
         {isFinalizing ? (
-          <Loader2 className="size-4 animate-spin text-[#23453c]" />
+          <Loader2 className="size-[18px] animate-spin text-[#18181B]" />
         ) : (
-          <Mic className={cn("size-4", isRecording && "animate-pulse")} />
+          <Mic className={cn("size-[18px] stroke-[1.75]", isRecording && "animate-pulse")} />
         )}
       </button>
     </div>

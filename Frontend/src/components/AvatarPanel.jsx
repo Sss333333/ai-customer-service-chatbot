@@ -1,9 +1,47 @@
-import React from 'react';
-import { Volume2, VolumeX, RefreshCw, Power, PowerOff, Sparkles } from 'lucide-react';
+import React, { useEffect } from 'react';
+import {
+  EyeOff,
+  Sparkles,
+  Volume2,
+  Phone,
+  Package,
+  Paperclip,
+  Headset,
+  RefreshCw,
+} from 'lucide-react';
 import { cn } from '../utils/cn';
 
+const WAVE_HEIGHTS = [8, 14, 20, 24, 20, 14, 8];
+
+export const FEATURE_TIPS = [
+  {
+    id: 'erp',
+    Icon: Package,
+    title: 'Live Order & Stock Lookup',
+    desc: 'Enter an order (SO-…), product SKU, or CASE number for live dispatch & state stock cards.',
+  },
+  {
+    id: 'voice',
+    Icon: Phone,
+    title: 'Hands-free Voice & Barge-in',
+    desc: 'Use Voice Call for real-time conversation — speak anytime to interrupt — or hold Mic to dictate.',
+  },
+  {
+    id: 'media',
+    Icon: Paperclip,
+    title: 'Photo, Video & PDF Claims',
+    desc: 'Attach defect photos, videos, or invoices for guided warranty & 72h transit checks.',
+  },
+  {
+    id: 'human',
+    Icon: Headset,
+    title: 'Live Specialist Handoff',
+    desc: 'Switch to a human specialist anytime with real-time voice translation.',
+  },
+];
+
 /**
- * 网页左侧 3D 数字人展示面板（LAM 3D Gaussian Splatting WebGL）
+ * Balanced Left Sidebar: Compact 3D WebGL Avatar Card + Feature Tips Panel
  */
 export function AvatarPanel({
   status,
@@ -13,166 +51,228 @@ export function AvatarPanel({
   isMuted,
   needsAudioUnlock,
   error,
+  onChangeZoom,
   containerRef,
   onConnect,
   onDisconnect,
-  onToggleMute,
   onUnlockAudio,
   isAwaitingResponse,
   currentToolLabel,
   isCallActive,
   callState,
   humanMode,
+  collapsed = false,
+  onToggleCollapse,
 }) {
-  const activityLabel = (() => {
-    if (humanMode === 'connected') {
-      if (isConnected && isSpeaking) return '人工客服正在说话（3D 同步播报）…';
-      return isConnected ? '人工客服通话中 · 3D 数字人同步播报' : '人工客服通话中（纯语音）';
+  // Notify WebGL renderer to recalculate aspect ratio when panel visibility changes
+  useEffect(() => {
+    if (!collapsed) {
+      const id = setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 320);
+      return () => clearTimeout(id);
     }
-    if (humanMode === 'ringing') return '正在呼叫人工客服…';
-    if (!isConnected) {
-      if (status === 'loading') return `正在加载 3D 形象 (${loadPercent}%)…`;
-      return '纯语音降级模式';
-    }
-    if (isSpeaking) return 'Nova 正在说话…';
-    if (isCallActive && callState === 'speaking') return '正在倾听您说话…';
+    return undefined;
+  }, [collapsed]);
+
+  const isAudioAnimating =
+    humanMode === 'ai' &&
+    (isSpeaking || (isCallActive && callState === 'speaking'));
+
+  const statusText = (() => {
+    if (humanMode === 'connected') return 'Specialist call active';
+    if (humanMode === 'ringing') return 'Calling specialist…';
+    if (status === 'loading') return `Loading 3D (${loadPercent}%)…`;
+    if (isSpeaking) return 'Speaking…';
+    if (isCallActive && callState === 'speaking') return 'Listening…';
+    if (isCallActive) return 'Listening…';
     if (currentToolLabel) return currentToolLabel;
-    if (isAwaitingResponse) return 'Nova 正在思考…';
-    return '3D 待机中 · 随时为您服务';
+    if (isAwaitingResponse) return 'Thinking…';
+    return isConnected ? 'Ready to assist' : 'Audio-only mode';
   })();
 
-  const dotClass = (() => {
-    if (humanMode === 'connected') {
-      return isSpeaking ? 'bg-emerald-500 animate-pulse' : 'bg-emerald-500';
-    }
-    if (!isConnected) return status === 'loading' ? 'bg-amber-400 animate-pulse' : 'bg-[#b0aaa0]';
-    if (isSpeaking) return 'bg-emerald-500 animate-pulse';
-    if (isCallActive && callState === 'speaking') return 'bg-[#b43728] animate-ping';
-    if (isAwaitingResponse) return 'bg-amber-500 animate-pulse';
-    return 'bg-[#23453c]';
-  })();
+  const showReadyDot =
+    humanMode === 'ai' &&
+    isConnected &&
+    status !== 'loading' &&
+    !isSpeaking &&
+    !isCallActive &&
+    !isAwaitingResponse;
 
   return (
-    <aside className="hidden md:flex h-full min-h-0 w-[340px] lg:w-[380px] flex-none flex-col border-l border-[#ddd8d0] bg-[#fbfaf7] box-border">
-      {/* 顶部栏 */}
-      <div className="flex items-center justify-between border-b border-[#e6e1d9] px-4 py-3.5">
-        <div className="flex items-center gap-2 min-w-0">
-          <Sparkles className="size-4 flex-none text-[#23453c]" />
-          <span className="truncate text-sm font-semibold text-[#211f1b]">Nova 3D 数字人</span>
-          <span
-            className={cn(
-              'rounded-full px-2 py-0.5 text-[11px] font-medium',
-              isConnected
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                : status === 'loading'
-                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                  : 'bg-[#efece6] text-[#7c766e] border border-[#ddd8d0]'
+    <aside
+      className={cn(
+        'flex-none overflow-hidden border-[#ECEAE4] bg-[#F4F3EF] transition-all duration-300 ease-out select-none',
+        collapsed
+          ? 'w-0 border-r-0 p-0 opacity-0 pointer-events-none'
+          : 'hidden md:flex h-full min-h-0 w-[284px] lg:w-[312px] flex-col gap-3.5 border-r p-3.5 lg:p-4'
+      )}
+    >
+      {/* Top Card: Compact Framed 3D Avatar Stage */}
+      <div
+        onWheel={(e) => {
+          if (!isConnected || !onChangeZoom) return;
+          e.preventDefault();
+          const delta = e.deltaY < 0 ? 0.1 : -0.1;
+          onChangeZoom((prev) => prev + delta);
+        }}
+        title={isConnected ? 'Scroll to adjust 3D zoom' : undefined}
+        className="relative h-[304px] lg:h-[336px] w-full flex-none overflow-hidden rounded-[22px] border border-[#E5E4DF] bg-[#EAE7E0] shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
+      >
+        {/* Live WebGL 3D Gaussian Splatting Canvas Mount */}
+        <div
+          ref={containerRef}
+          className={cn(
+            'absolute inset-0 h-full w-full transition-opacity duration-500 [&_canvas]:block [&_canvas]:!h-full [&_canvas]:!w-full',
+            isConnected ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          )}
+        />
+
+        {/* Minimalist Non-Photo Standby Surface (when 3D WebGL is off or loading) */}
+        {!isConnected && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-[#F5F4F0] to-[#EAE7E0] px-6 text-center">
+            <div className="mb-3 flex size-14 items-center justify-center rounded-full border border-[#DFDCD4] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
+              <Sparkles className="size-5 stroke-[1.6] text-[#18181B]" />
+            </div>
+            <p className="m-0 text-[13.5px] font-semibold text-[#18181B]">
+              {status === 'loading'
+                ? `Loading 3D Avatar (${loadPercent}%)`
+                : '3D Avatar Paused'}
+            </p>
+            <p className="m-0 mt-1 max-w-[210px] text-[12px] leading-relaxed text-[#78716C]">
+              {status === 'loading'
+                ? 'Initializing local WebGL Gaussian Splatting stage…'
+                : error || 'Voice & chat remain active. Enable 3D anytime.'}
+            </p>
+
+            {status === 'loading' ? (
+              <div className="mt-3.5 h-1 w-32 overflow-hidden rounded-full bg-[#DDD9D0]">
+                <div
+                  className="h-full bg-[#18181B] transition-all duration-200"
+                  style={{ width: `${Math.max(8, loadPercent)}%` }}
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={onConnect}
+                className="mt-3.5 inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-[#18181B] px-4 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-[#27272A]"
+              >
+                <RefreshCw className="size-3" />
+                <span>Enable 3D Avatar</span>
+              </button>
             )}
+          </div>
+        )}
+
+        {/* Top-Left: Single Eye Icon to Hide Avatar Panel */}
+        {onToggleCollapse && (
+          <div className="absolute top-3 left-3 z-20">
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className={cn(
+                'flex size-8 cursor-pointer items-center justify-center rounded-full border backdrop-blur-md transition-colors',
+                isConnected
+                  ? 'border-white/25 bg-black/25 text-white hover:bg-black/40'
+                  : 'border-[#E2DFD7] bg-white/85 text-[#57534E] hover:bg-white hover:text-[#18181B]'
+              )}
+              title="Hide side panel"
+              aria-label="Hide side panel"
+            >
+              <EyeOff className="size-4 stroke-[1.75]" />
+            </button>
+          </div>
+        )}
+
+        {/* Top-Right: Discreet 3D Live Toggle (only needed when connected) */}
+        {isConnected && (
+          <div className="absolute top-3 right-3 z-20">
+            <button
+              type="button"
+              onClick={onDisconnect}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/25 bg-black/25 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-md transition-all hover:bg-black/40"
+              title="Pause 3D avatar (switch to audio-only)"
+            >
+              <Sparkles className="size-3" />
+              <span>3D Live</span>
+            </button>
+          </div>
+        )}
+
+        {/* Browser Audio Autoplay Unlock Prompt */}
+        {isConnected && needsAudioUnlock && !isMuted && (
+          <button
+            type="button"
+            onClick={onUnlockAudio}
+            className="absolute top-14 left-1/2 z-20 flex -translate-x-1/2 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-white/20 bg-[#18181B]/85 px-3 py-1 text-[11px] font-medium text-white shadow-md backdrop-blur-md hover:bg-[#18181B]"
           >
-            {isConnected ? 'LAM 在线' : status === 'loading' ? `${loadPercent}%` : '未连接'}
+            <Volume2 className="size-3" />
+            <span>Tap to enable audio</span>
+          </button>
+        )}
+
+        {/* Human Specialist Call Dimmer */}
+        {humanMode !== 'ai' && (
+          <div className="absolute inset-0 z-10 bg-black/20 backdrop-blur-[2px] transition-opacity" />
+        )}
+
+        {/* Bottom Compact Waveform Pill (shown when 3D is active or audio is active) */}
+        {(isConnected || isSpeaking || isCallActive) && (
+          <div className="absolute inset-x-3.5 bottom-3.5 z-20 flex justify-center">
+            <div className="flex max-w-full items-center gap-2.5 rounded-full border border-white/15 bg-[#3A3530]/72 px-4 py-2 text-white shadow-[0_6px_20px_rgba(0,0,0,0.16)] backdrop-blur-md">
+              <div className="flex h-4 flex-none items-center gap-[2.5px]">
+                {WAVE_HEIGHTS.map((h, idx) => (
+                  <span
+                    key={idx}
+                    className={cn(
+                      'w-[2px] rounded-full bg-white/90 transition-all duration-300',
+                      isAudioAnimating && 'nova-wave-bar',
+                      !isAudioAnimating && idx % 2 === 1 && 'bg-white/55'
+                    )}
+                    style={{
+                      height: `${isAudioAnimating ? Math.max(8, Math.round(h * 0.7)) : Math.round(h * 0.5)}px`,
+                      animationDelay: isAudioAnimating ? `${idx * 0.09}s` : undefined,
+                    }}
+                  />
+                ))}
+              </div>
+
+              <span className="truncate text-[12px] font-medium tracking-[-0.01em] text-white/95">
+                {statusText}
+              </span>
+              {showReadyDot && (
+                <span className="size-1.5 flex-none rounded-full bg-emerald-400" />
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Card: Persistent Feature Tips & Capabilities Guide */}
+      <div className="nova-scroll flex min-h-0 flex-1 flex-col overflow-y-auto rounded-[20px] border border-[#E7E5E4] bg-white/80 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#8C8881]">
+            Features &amp; Tips
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-none">
-          {isConnected && (
-            <button
-              type="button"
-              onClick={onToggleMute}
-              className="flex size-7 cursor-pointer items-center justify-center rounded-full border border-[#ddd8d0] bg-white text-[#4a463f] hover:border-[#23453c] hover:text-[#23453c]"
-              title={isMuted ? '取消静音' : '静音数字人'}
-            >
-              {isMuted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={isConnected || status === 'loading' ? onDisconnect : onConnect}
-            className={cn(
-              'flex size-7 cursor-pointer items-center justify-center rounded-full border transition-colors',
-              isConnected
-                ? 'border-[#ddd8d0] bg-white text-[#7c766e] hover:border-[#b43728] hover:text-[#b43728]'
-                : 'border-[#23453c]/40 bg-white text-[#23453c] hover:bg-[#23453c]/5'
-            )}
-            title={isConnected ? '关闭 3D 数字人（切回纯语音）' : '开启 3D 数字人'}
-          >
-            {isConnected ? <PowerOff className="size-3.5" /> : <Power className="size-3.5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* 主 3D 渲染区 */}
-      <div className="flex flex-1 flex-col p-4 min-h-0">
-        <div className="relative flex-1 min-h-0 w-full overflow-hidden rounded-2xl border border-[#e6e1d9] bg-[#f4f1eb]">
-          {/* WebGL 挂载容器 */}
-          <div
-            ref={containerRef}
-            className={cn(
-              'h-full w-full transition-opacity duration-300',
-              isConnected ? 'opacity-100' : 'opacity-0'
-            )}
-          />
-
-          {/* 未连接 / 加载中占位 */}
-          {!isConnected && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-[#f4f1eb]">
-              <div className="grid size-16 place-items-center rounded-2xl bg-[#23453c]/10 text-2xl text-[#23453c]">
-                ◧
+        <div className="space-y-3">
+          {FEATURE_TIPS.map(({ id, Icon, title, desc }) => (
+            <div key={id} className="flex items-start gap-2.5">
+              <div className="mt-0.5 flex size-6 flex-none items-center justify-center rounded-lg border border-[#ECEAE4] bg-[#FAF9F6] text-[#44403C]">
+                <Icon className="size-3.5 stroke-[1.7]" />
               </div>
-              <div className="space-y-1">
-                <p className="m-0 text-sm font-semibold text-[#211f1b]">
-                  {status === 'loading' ? `正在加载 3D 真人形象 (${loadPercent}%)` : 'Nova 3D 数字人未开启'}
-                </p>
-                <p className="m-0 text-xs leading-relaxed text-[#7c766e]">
-                  {error || '浏览器本地 WebGL 实时渲染，待机零服务器消耗；未连接时自动使用原有语音播报。'}
-                </p>
-              </div>
-              {status === 'loading' && (
-                <div className="h-1.5 w-40 overflow-hidden rounded-full bg-[#e2ddd5]">
-                  <div
-                    className="h-full bg-[#23453c] transition-all duration-200"
-                    style={{ width: `${Math.max(8, loadPercent)}%` }}
-                  />
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-semibold leading-snug text-[#18181B]">
+                  {title}
                 </div>
-              )}
-              {status !== 'loading' && (
-                <button
-                  type="button"
-                  onClick={onConnect}
-                  className="mt-1 flex cursor-pointer items-center gap-1.5 rounded-full bg-[#23453c] px-4 py-1.5 text-xs font-medium text-white hover:bg-[#1b3730]"
-                >
-                  <RefreshCw className="size-3.5" />
-                  <span>{status === 'offline' || status === 'error' ? '重试连接' : '开启 3D 数字人'}</span>
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* 浏览器自动播放解锁声音提示 */}
-          {isConnected && needsAudioUnlock && !isMuted && (
-            <button
-              type="button"
-              onClick={onUnlockAudio}
-              className="absolute top-3 left-1/2 -translate-x-1/2 flex cursor-pointer items-center gap-1.5 rounded-full bg-[#23453c]/90 px-3.5 py-1.5 text-xs font-medium text-white shadow-md hover:bg-[#23453c]"
-            >
-              <Volume2 className="size-3.5" />
-              <span>点击开启数字人声音</span>
-            </button>
-          )}
-
-          {/* 呼叫人工中覆盖提示（接通后移除遮罩，由数字人同步播报客服译文） */}
-          {isConnected && humanMode === 'ringing' && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/35 backdrop-blur-[2px]">
-              <div className="rounded-xl bg-white/95 px-4 py-2.5 text-xs font-medium text-[#211f1b] shadow-sm">
-                正在呼叫人工客服…
+                <p className="m-0 mt-0.5 text-[11.5px] leading-relaxed text-[#78716C]">
+                  {desc}
+                </p>
               </div>
             </div>
-          )}
-
-          {/* 底部状态条 */}
-          <div className="absolute inset-x-3 bottom-3 flex items-center gap-2 rounded-xl bg-black/55 px-3 py-2 text-xs text-white backdrop-blur-xs">
-            <span className={cn('size-2 flex-none rounded-full', dotClass)} />
-            <span className="truncate">{activityLabel}</span>
-          </div>
+          ))}
         </div>
       </div>
     </aside>

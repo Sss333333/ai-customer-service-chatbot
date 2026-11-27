@@ -10,7 +10,25 @@ import React, {
 } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, getToolName, isToolUIPart } from 'ai';
-import { Volume2, VolumeX, Phone, PhoneOff, Headset, ExternalLink, Mic, MicOff } from 'lucide-react';
+import {
+  Volume2,
+  VolumeX,
+  PhoneOff,
+  ExternalLink,
+  Mic,
+  MicOff,
+  Paperclip,
+  ArrowUp,
+  Square,
+  Eye,
+  HelpCircle,
+  X,
+  Package,
+  Box,
+  ShieldCheck,
+  FileText,
+  Loader2,
+} from 'lucide-react';
 import { resizeImage } from './utils/image';
 import { API_BASE, uploadFile, generateCaseRef } from './utils/api';
 import { useHumanCall } from './hooks/useHumanCall';
@@ -18,42 +36,59 @@ import { useAudioPlayer } from './hooks/useAudioPlayer';
 import { useLiveCall } from './hooks/useLiveCall';
 import { useLamAvatar } from './hooks/useLamAvatar';
 import { VoiceInputButton } from './components/VoiceInputButton';
-import { AvatarPanel } from './components/AvatarPanel';
+import { AvatarPanel, FEATURE_TIPS } from './components/AvatarPanel';
+import { ToolResultCard } from './components/ToolResultCard';
 import { cn } from './utils/cn';
 import './App.css';
 
-const INITIAL_GREETING = {
-  id: 'assistant-greeting',
-  role: 'assistant',
-  parts: [
-    {
-      type: 'text',
-      text: "Hi, I'm Nova — your 24/7 customer service agent for order status, product information, and warranty enquiries.",
-    },
-  ],
-};
-
 const TOOL_STATUS_LABELS = {
-  getInformation: 'Searching warranty knowledge base (正在检索售后知识库)…',
-  get_product_info: 'Checking product info & stock (正在查询产品与库存)…',
-  check_order_status: 'Checking order status in NetSuite (正在查询订单状态)…',
-  check_case_status: 'Checking support case status (正在查询工单进度)…',
-  start_warranty_claim: 'Logging support case in NetSuite (正在提交售后工单)…',
+  getInformation: 'Searching warranty knowledge base…',
+  get_product_info: 'Checking live warehouse stock…',
+  check_order_status: 'Checking order & dispatch status…',
+  check_case_status: 'Checking support case status…',
+  start_warranty_claim: 'Logging support case in NetSuite…',
 };
 
-// Streamdown (and its Markdown parser) is loaded on demand, only when a real
-// Markdown message is about to render. React/ReactDOM stay in the first-screen
-// chunk; the initial plain-text greeting never pulls this chunk in.
+const QUICK_PROMPTS = [
+  {
+    id: 'order',
+    title: 'Track an order',
+    subtitle: 'Check dispatch status & StarTrack tracking',
+    prompt: "I'd like to check the dispatch and tracking status of an order.",
+    Icon: Package,
+  },
+  {
+    id: 'stock',
+    title: 'Product & stock lookup',
+    subtitle: 'Specs, RRP & live NSW / QLD / VIC stock',
+    prompt: 'Can you look up product specifications and state warehouse stock for a SKU?',
+    Icon: Box,
+  },
+  {
+    id: 'warranty',
+    title: 'Start a warranty claim',
+    subtitle: 'Upload photos for fast fault assessment',
+    prompt: 'I need to start a warranty or transit damage claim for a product.',
+    Icon: ShieldCheck,
+  },
+  {
+    id: 'case',
+    title: 'Check case status',
+    subtitle: 'Follow up on an existing support case',
+    prompt: "I'd like to check the status of an existing support case.",
+    Icon: FileText,
+  },
+];
+
+// Lazy-load Streamdown Markdown parser so initial render stays instant
 const Streamdown = lazy(() =>
   import('streamdown').then((module) => ({ default: module.Streamdown }))
 );
 
-/** Plain-text fallback shown while the Streamdown chunk loads or if it fails. */
 function PlainText({ text }) {
   return <div className="whitespace-pre-wrap">{text}</div>;
 }
 
-/** Isolates a lazy-chunk failure so a bad/slow chunk never breaks the chat. */
 class MarkdownErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -70,7 +105,6 @@ class MarkdownErrorBoundary extends Component {
   }
 }
 
-/** Renders Markdown through lazy Streamdown with a plain-text safety net. */
 function MarkdownContent({ text }) {
   return (
     <MarkdownErrorBoundary text={text}>
@@ -82,13 +116,13 @@ function MarkdownContent({ text }) {
 }
 
 /**
- * Strip internal system instructions (e.g. "[The customer attached...]") from user bubble display
+ * Strip internal system instructions from user bubble display
  */
 function formatUserDisplayText(text) {
   if (!text) return '';
   if (text.startsWith('[The customer attached this photo.')) return '';
   const pdfMatch = text.match(/^\[The customer uploaded a PDF document: ([^.]+)\./);
-  if (pdfMatch) return `📄 PDF attached: ${pdfMatch[1]}`;
+  if (pdfMatch) return `PDF attached: ${pdfMatch[1]}`;
   const videoMatch = text.match(/^\[The customer uploaded a video: ([^.]+)\./);
   if (videoMatch) return `Video attached: ${videoMatch[1]}`;
   const fileMatch = text.match(/^\[The customer uploaded a file: ([^.]+)\./);
@@ -97,45 +131,44 @@ function formatUserDisplayText(text) {
 }
 
 /**
- * 将消息中的裸 /guidance/ 或 /evidence/ 链接转为友好的 Markdown 链接文字
+ * Format raw guidance/evidence URLs into clean Markdown links
  */
 function formatAssistantMarkdown(text) {
   if (!text) return '';
   return text
     .replace(/(?<!\]\()https?:\/\/[^\s)]+/g, (url) => {
-      if (url.includes('/guidance/')) return `[view guide photo](${url})`;
-      if (url.includes('/evidence/')) return `[view uploaded files](${url})`;
+      if (url.includes('/guidance/')) return `[View batch label guide](${url})`;
+      if (url.includes('/evidence/')) return `[View uploaded files](${url})`;
       return url;
     })
     .replace(/(?<!\]\()\/guidance\/[^\s)]+/g, (url) => {
-      return `[view guide photo](${url})`;
+      return `[View batch label guide](${url})`;
     });
 }
 
 /**
- * 💭 大模型思考过程折叠组件（支持流式展开与手动折叠）
+ * Collapsible model reasoning disclosure
  */
 function ThinkingProcess({ text, isStreaming }) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   if (!text) return null;
 
   return (
     <details
-      className="mb-2.5 rounded-lg border border-[#dedad2] bg-[#f7f5f0] p-2.5 text-xs text-[#6e685f] transition-all group"
+      className="rounded-xl border border-[#ECEAE4] bg-[#F8F7F4] px-3.5 py-2 text-xs text-[#78716C] transition-all"
       open={isOpen}
       onToggle={(e) => setIsOpen(e.currentTarget.open)}
     >
-      <summary className="flex cursor-pointer select-none items-center gap-1.5 font-medium text-[#4a453e] hover:text-[#23453c]">
-        <span className="text-sm">💭</span>
+      <summary className="flex cursor-pointer select-none items-center gap-2 font-medium text-[#57534E] hover:text-[#18181B]">
         <span>
-          思考过程{' '}
+          Reasoning{' '}
           {isStreaming && (
-            <span className="animate-pulse font-normal text-[#8b8478]">(思考中…)</span>
+            <span className="animate-pulse font-normal text-[#8C8881]">(thinking…)</span>
           )}
         </span>
       </summary>
-      <div className="mt-2 max-h-60 overflow-y-auto whitespace-pre-wrap border-t border-[#e8e4dc] pt-2 font-mono text-[12px] leading-relaxed text-[#5c564d]">
+      <div className="mt-2 max-h-52 overflow-y-auto whitespace-pre-wrap border-t border-[#E7E5E4] pt-2 font-mono text-[11.5px] leading-relaxed text-[#57534E]">
         {text}
       </div>
     </details>
@@ -146,6 +179,8 @@ export default function App() {
   const [input, setInput] = useState('');
   const [uploading, setUploading] = useState(false);
   const [localError, setLocalError] = useState(null);
+  const [stageCollapsed, setStageCollapsed] = useState(false);
+  const [showTipsPopover, setShowTipsPopover] = useState(false);
 
   const logRef = useRef(null);
   const fileRef = useRef(null);
@@ -174,7 +209,6 @@ export default function App() {
   const humanMode =
     humanStatus === 'ringing' || humanStatus === 'connected' ? humanStatus : 'ai';
 
-  // 语音播放与自动朗读控制 Hook（走 /ws/tts 旁路，LAM 未连接时自动兜底）
   const {
     autoSpeak,
     isPlaying,
@@ -209,15 +243,11 @@ export default function App() {
     []
   );
 
-  // 核心 AI 聊天状态 Hook（参考 ai-sdk-preview-rag-study/app/(preview)/page.tsx）
   const { messages, setMessages, status, sendMessage, stop, regenerate, error } = useChat({
-    messages: [INITIAL_GREETING],
+    messages: [],
     transport,
-    onToolCall({ toolCall }) {
-      console.log('🛠️ Nova 正在调用后端工具:', toolCall);
-    },
     onError(err) {
-      setLocalError(err?.message || "Couldn't reach the server.");
+      setLocalError(err?.message || "Couldn't reach the support server.");
     },
   });
 
@@ -225,14 +255,24 @@ export default function App() {
   messagesRef.current = messages;
 
   const handleToggleAutoSpeak = useCallback(() => {
-    stopAudio();
-    avatar.interrupt();
-    toggleAutoSpeak();
-  }, [avatar, stopAudio, toggleAutoSpeak]);
+    if (autoSpeak) {
+      stopAudio();
+      avatar.interrupt();
+      if (!avatar.isMuted) {
+        avatar.toggleMute();
+      }
+      setAutoSpeak(false);
+    } else {
+      if (avatar.isMuted) {
+        avatar.toggleMute();
+      }
+      avatar.unlockAudio();
+      setAutoSpeak(true);
+    }
+  }, [autoSpeak, avatar, setAutoSpeak, stopAudio]);
 
   const effectiveIsPlaying = avatar.isConnected ? avatar.isSpeaking : isPlaying;
 
-  // 实时语音通话旁路（Gemini 3 Flash Live 端到端语音对话，直连 /ws/live-ai）
   const {
     isCallActive,
     callState,
@@ -245,7 +285,7 @@ export default function App() {
     sessionId: caseRef.current,
     getHistory: () =>
       (messagesRef.current || [])
-        .filter((m) => m.id !== INITIAL_GREETING.id && (m.role === 'user' || m.role === 'assistant'))
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
         .map((m) => ({
           role: m.role,
           text: (m.parts || [])
@@ -291,13 +331,14 @@ export default function App() {
       stopAudio();
       avatar.interrupt();
     } else {
+      if (humanMode !== 'ai') hangupHumanCall();
+      if (avatar.isMuted) avatar.toggleMute();
       setAutoSpeak(true);
       avatar.unlockAudio();
       await startCall();
     }
-  }, [avatar, endCall, isCallActive, setAutoSpeak, startCall, stopAudio]);
+  }, [avatar, endCall, hangupHumanCall, humanMode, isCallActive, setAutoSpeak, startCall, stopAudio]);
 
-  // 计算当前正在执行中的工具名称（兼容文字 /chat 与 Gemini Live 旁路）
   const currentToolCall = useMemo(() => {
     if (liveToolName) return liveToolName;
     const lastAssistant = [...messages]
@@ -316,7 +357,6 @@ export default function App() {
     return pendingPart ? getToolName(pendingPart) : undefined;
   }, [liveToolName, messages]);
 
-  // 检测是否已完成售后登记
   const done = useMemo(() => {
     const lastAssistant = [...messages]
       .reverse()
@@ -353,7 +393,6 @@ export default function App() {
 
   const [showLoading, setShowLoading] = useState(false);
 
-  // 120ms 防抖延迟，避免加载状态快速闪烁
   useEffect(() => {
     if (isAwaitingResponse) {
       setShowLoading(true);
@@ -363,41 +402,31 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [isAwaitingResponse]);
 
-  // Auto-scroll message log to bottom
   useEffect(() => {
     if (logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
   }, [messages, showLoading, localError, humanMessages, humanMode]);
 
-  // Refocus input field when ready
   useEffect(() => {
     if (!isAwaitingResponse && !done) {
       fieldRef.current?.focus();
     }
   }, [isAwaitingResponse, done]);
 
-  // Preload the Streamdown chunk during idle time, strictly after the first
-  // frame has painted. This runs in a passive effect (never during render or
-  // mount), never blocks the initial paint, and never touches build config.
-  // It removes the Suspense plain-text flash when the first assistant reply
-  // streams in. A failed chunk is still handled by MarkdownErrorBoundary at
-  // render time; the catch here only avoids an unhandled prefetch rejection.
+  // Preload Streamdown chunk during idle time after first frame
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     let rafId;
     let idleId;
     let fallbackId;
     const prefetch = () => {
-      // Same specifier as the lazy() call so Vite/Rollup dedupe the chunk.
       import('streamdown').catch(() => {});
     };
     const afterFirstFrame = () => {
       if (typeof window.requestIdleCallback === 'function') {
         idleId = window.requestIdleCallback(prefetch, { timeout: 2000 });
       } else {
-        // No requestIdleCallback (e.g. older Safari): defer to a macrotask,
-        // still outside the critical rendering path.
         fallbackId = window.setTimeout(prefetch, 0);
       }
     };
@@ -436,6 +465,16 @@ export default function App() {
     }
   }, [avatar, endCall, hangupHumanCall, humanMode, isCallActive, messages, startHumanCall, stopAudio]);
 
+  const handleQuickPrompt = useCallback(
+    (promptText) => {
+      if (isAwaitingResponse || done || humanMode !== 'ai') return;
+      setLocalError(null);
+      avatar.unlockAudio();
+      sendMessage({ text: promptText });
+    },
+    [avatar, done, humanMode, isAwaitingResponse, sendMessage]
+  );
+
   function onSubmit(e) {
     e.preventDefault();
     const text = input.trim();
@@ -449,8 +488,8 @@ export default function App() {
     }
 
     if (humanMode === 'ringing') return;
-
     if (isAwaitingResponse) return;
+
     setLocalError(null);
     setInput('');
     avatar.unlockAudio();
@@ -509,98 +548,13 @@ export default function App() {
   }
 
   const displayError = localError || humanCallError || callError || error?.message;
+  const showWelcome = messages.length === 0 && humanMode === 'ai';
 
   return (
-    <div
-      className={cn(
-        'flex h-dvh min-h-screen w-full flex-col items-center text-[#211f1b]',
-        'bg-[#eceae4]'
-      )}
-    >
-      <header className="flex w-full max-w-[1000px] flex-none flex-wrap items-center justify-between gap-x-4 gap-y-3 border-x border-t border-b border-[#e6e1d9] bg-[#fbfaf7] px-5 py-4">
-        <div className="flex items-center gap-3">
-          <div
-            className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[9px] bg-[#23453c] text-[18px] text-white"
-            aria-hidden="true"
-          >
-            ◧
-          </div>
-          <div>
-            <h1 className="m-0 text-base font-semibold tracking-[-0.01em]">Nova</h1>
-            <p className="m-0 mt-px text-[12.5px] text-[#7c766e]">
-              Your 24/7 customer service agent
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* 转人工客服按钮 */}
-          <button
-            type="button"
-            onClick={handleToggleHumanChat}
-            disabled={done}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-xs select-none disabled:opacity-45 disabled:cursor-default",
-              humanMode === 'connected'
-                ? "bg-emerald-700 text-white border-emerald-700 hover:bg-emerald-800"
-                : humanMode === 'ringing'
-                  ? "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
-                  : "bg-white text-[#23453c] border-[#23453c]/40 hover:bg-[#23453c]/5"
-            )}
-            title={
-              humanMode === 'connected'
-                ? "点击挂断人工对话并切回 AI"
-                : humanMode === 'ringing'
-                  ? "正在呼叫人工客服，点击取消"
-                  : "呼叫人工客服"
-            }
-          >
-            <Headset className="size-3.5" />
-            <span>
-              {humanMode === 'connected'
-                ? '挂断人工'
-                : humanMode === 'ringing'
-                  ? '呼叫中'
-                  : '转人工'}
-            </span>
-          </button>
-
-          {/* 实时语音通话开关 */}
-          <button
-            type="button"
-            onClick={handleToggleCall}
-            disabled={done}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-xs select-none disabled:opacity-45 disabled:cursor-default",
-              isCallActive
-                ? "bg-[#b43728] text-white border-[#b43728] animate-pulse"
-                : "bg-white text-[#23453c] border-[#23453c]/40 hover:bg-[#23453c]/5"
-            )}
-            title={isCallActive ? "挂断实时通话" : "开启免按键实时语音对话"}
-          >
-            {isCallActive ? <PhoneOff className="size-3.5" /> : <Phone className="size-3.5" />}
-            <span>{isCallActive ? "挂断" : "实时通话"}</span>
-          </button>
-
-          {/* 自动朗读开关 */}
-          <button
-            type="button"
-            onClick={handleToggleAutoSpeak}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-xs select-none",
-              autoSpeak
-                ? "bg-[#23453c] text-white border-[#23453c]"
-                : "bg-white text-[#7c766e] border-[#ddd8d0] hover:text-[#211f1b] hover:border-[#b0aaa0]"
-            )}
-            title={autoSpeak ? "Auto-speak enabled (Click to turn off)" : "Auto-speak disabled (Click to turn on)"}
-          >
-            {autoSpeak ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
-            <span>Auto-speak</span>
-          </button>
-        </div>
-      </header>
-
-      <div className="flex min-h-0 w-full max-w-[1000px] flex-1">
+    <div className="flex h-dvh min-h-screen w-full items-center justify-center bg-[#EFEEEA] p-0 sm:p-4 md:p-6 text-[#18181B]">
+      {/* Frameless Rounded Split-Pane Card */}
+      <div className="flex h-full w-full max-w-[1360px] overflow-hidden bg-[#FAF9F6] sm:rounded-[28px] sm:border sm:border-[#E5E4DF] sm:shadow-[0_12px_48px_rgba(0,0,0,0.06)]">
+        {/* Left: Architectural 3D Concierge Stage */}
         <AvatarPanel
           status={avatar.status}
           loadPercent={avatar.loadPercent}
@@ -609,6 +563,7 @@ export default function App() {
           isMuted={avatar.isMuted}
           needsAudioUnlock={avatar.needsAudioUnlock}
           error={avatar.error}
+          onChangeZoom={avatar.setZoom}
           containerRef={avatar.containerRef}
           onConnect={avatar.connect}
           onDisconnect={avatar.disconnect}
@@ -619,379 +574,590 @@ export default function App() {
           isCallActive={isCallActive}
           callState={callState}
           humanMode={humanMode}
+          collapsed={stageCollapsed}
+          onToggleCollapse={() => setStageCollapsed((v) => !v)}
         />
 
-        <div className="flex h-full min-w-0 flex-1 flex-col border-x border-[#ddd8d0] bg-[#fbfaf7] box-border max-[480px]:border-x-0">
-        {/* 人工对话模式顶部状态横幅 */}
-        {humanMode !== 'ai' && (
-          <div
-            className={cn(
-              'flex items-center justify-between gap-2 border-b px-5 py-2 text-xs',
-              humanMode === 'connected'
-                ? 'border-emerald-200 bg-emerald-50/90 text-emerald-900'
-                : 'border-amber-200 bg-amber-50/90 text-amber-900'
-            )}
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <span
-                className={cn(
-                  'size-2 flex-none rounded-full',
-                  humanMode === 'connected'
-                    ? 'bg-emerald-500'
-                    : 'bg-amber-500 animate-ping'
-                )}
-              />
-              <span className="truncate font-medium">
-                {humanMode === 'connected'
-                  ? `人工客服 ${humanAgentName || '专员'} 跨语言通话中（EN ⇄ 中文）`
-                  : '正在呼叫人工客服，请等待接听…'}
-              </span>
-              {humanMode === 'connected' && (
-                <div className="hidden h-1.5 w-12 overflow-hidden rounded-full bg-emerald-200 sm:block">
-                  <div
-                    className="h-full bg-emerald-600 transition-all duration-75"
-                    style={{ width: `${Math.round(humanMicLevel * 100)}%` }}
-                  />
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 flex-none">
-              {humanMode === 'connected' && (
+        {/* Right: Minimalist Conversational Workspace */}
+        <main className="flex h-full min-w-0 flex-1 flex-col bg-[#FAF9F6]">
+          {/* Header */}
+          <header className="relative flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2.5 border-b border-[#ECEAE4] px-6 py-4">
+            <div className="flex items-center gap-3 min-w-0">
+              {stageCollapsed && (
                 <button
                   type="button"
-                  onClick={toggleHumanMute}
-                  className={cn(
-                    'flex cursor-pointer items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium',
-                    humanMuted
-                      ? 'border-amber-300 bg-amber-50 text-amber-900'
-                      : 'border-emerald-300 bg-white/80 text-emerald-900 hover:bg-white'
-                  )}
+                  onClick={() => setStageCollapsed(false)}
+                  className="hidden md:inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#E5E4DF] bg-white px-3 py-1.5 text-[12.5px] font-medium text-[#44403C] transition-colors hover:border-[#18181B]/30 hover:text-[#18181B]"
+                  title="Show avatar & tips panel"
+                  aria-label="Show avatar & tips panel"
                 >
-                  {humanMuted ? <MicOff className="size-3" /> : <Mic className="size-3" />}
-                  <span>{humanMuted ? '已静音' : '开麦'}</span>
+                  <Eye className="size-3.5 stroke-[1.75]" />
+                  <span>Avatar</span>
                 </button>
               )}
-              {humanMode === 'ringing' && (
-                <a
-                  href="/agent"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1 rounded border border-amber-300 bg-white px-2 py-0.5 text-[11px] font-medium text-amber-900 no-underline hover:bg-amber-100/60"
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="size-2.5 flex-none rounded-full bg-emerald-500" />
+                  <h1 className="m-0 truncate text-[18px] font-semibold tracking-[-0.02em] text-[#18181B]">
+                    Nova Support
+                  </h1>
+                </div>
+                <p className="m-0 mt-0.5 truncate text-[13px] text-[#78716C]">
+                  Order, Product &amp; Warranty Concierge
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Tips popover button when sidebar is hidden or on mobile */}
+              <div className={cn('relative', !stageCollapsed && 'md:hidden')}>
+                <button
+                  type="button"
+                  onClick={() => setShowTipsPopover((v) => !v)}
+                  className={cn(
+                    'flex size-9 cursor-pointer items-center justify-center rounded-full border transition-all select-none',
+                    showTipsPopover
+                      ? 'border-[#18181B] bg-[#18181B] text-white'
+                      : 'border-[#E5E4DF] bg-white text-[#57534E] hover:border-[#18181B]/30 hover:text-[#18181B]'
+                  )}
+                  title="Features & usage tips"
+                  aria-label="Features & usage tips"
                 >
-                  <span>打开值班台</span>
-                  <ExternalLink className="size-3" />
-                </a>
-              )}
+                  <HelpCircle className="size-4 stroke-[1.75]" />
+                </button>
+
+                {showTipsPopover && (
+                  <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-[300px] rounded-2xl border border-[#E5E4DF] bg-white p-4 shadow-[0_12px_36px_rgba(0,0,0,0.09)]">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#8C8881]">
+                        Features &amp; Tips
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowTipsPopover(false)}
+                        className="flex size-6 cursor-pointer items-center justify-center rounded-full text-[#78716C] hover:bg-[#F4F3EF] hover:text-[#18181B]"
+                        aria-label="Close tips"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {FEATURE_TIPS.map(({ id, Icon, title, desc }) => (
+                        <div key={id} className="flex items-start gap-2.5">
+                          <div className="mt-0.5 flex size-6 flex-none items-center justify-center rounded-lg border border-[#ECEAE4] bg-[#FAF9F6] text-[#44403C]">
+                            <Icon className="size-3.5 stroke-[1.7]" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[12.5px] font-semibold text-[#18181B]">
+                              {title}
+                            </div>
+                            <p className="m-0 mt-0.5 text-[11.5px] leading-relaxed text-[#78716C]">
+                              {desc}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Unified Single Voice Output Mute/Unmute Toggle */}
+              <button
+                type="button"
+                onClick={handleToggleAutoSpeak}
+                className={cn(
+                  'flex size-9 cursor-pointer items-center justify-center rounded-full border transition-all select-none',
+                  autoSpeak
+                    ? 'border-[#D6D3CD] bg-white text-[#18181B] shadow-[0_1px_2px_rgba(0,0,0,0.03)]'
+                    : 'border-transparent bg-transparent text-[#A8A29E] hover:bg-black/[0.04] hover:text-[#57534E]'
+                )}
+                title={autoSpeak ? 'Audio output on (click to mute)' : 'Audio output muted (click to unmute)'}
+                aria-label="Toggle audio output"
+              >
+                {autoSpeak ? (
+                  <Volume2 className="size-4 stroke-[1.75]" />
+                ) : (
+                  <VolumeX className="size-4 stroke-[1.75]" />
+                )}
+              </button>
+
+              {/* Voice Call Pill */}
+              <button
+                type="button"
+                onClick={handleToggleCall}
+                disabled={done}
+                className={cn(
+                  'flex cursor-pointer items-center gap-1.5 rounded-full border px-4 py-2 text-[13px] font-medium transition-all select-none disabled:cursor-default disabled:opacity-40',
+                  isCallActive
+                    ? 'border-[#9F4A4A] bg-[#FDF2F2] text-[#9F4A4A] hover:bg-[#FCE7E7]'
+                    : 'border-[#18181B] bg-transparent text-[#18181B] hover:bg-[#18181B]/[0.04]'
+                )}
+                title={isCallActive ? 'End live voice call' : 'Start hands-free live voice call'}
+              >
+                {isCallActive ? (
+                  <>
+                    <PhoneOff className="size-3.5 stroke-[1.75]" />
+                    <span>End Call</span>
+                  </>
+                ) : (
+                  <span>Voice Call</span>
+                )}
+              </button>
+
+              {/* Speak to Specialist Pill */}
               <button
                 type="button"
                 onClick={handleToggleHumanChat}
-                className="cursor-pointer rounded border border-current/25 bg-white/80 px-2 py-0.5 text-[11px] font-medium hover:bg-white"
+                disabled={done}
+                className={cn(
+                  'flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-medium transition-all select-none disabled:cursor-default disabled:opacity-40',
+                  humanMode === 'connected'
+                    ? 'bg-emerald-700 text-white hover:bg-emerald-800'
+                    : humanMode === 'ringing'
+                      ? 'border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
+                      : 'bg-[#18181B] text-white hover:bg-[#27272A]'
+                )}
+                title={
+                  humanMode === 'connected'
+                    ? 'End specialist call and return to Nova'
+                    : humanMode === 'ringing'
+                      ? 'Cancel specialist call request'
+                      : 'Connect with a live human specialist'
+                }
               >
-                {humanMode === 'connected' ? '挂断' : '取消呼叫'}
+                <span>
+                  {humanMode === 'connected'
+                    ? 'End Specialist Call'
+                    : humanMode === 'ringing'
+                      ? 'Calling Specialist…'
+                      : 'Speak to Specialist'}
+                </span>
               </button>
             </div>
-          </div>
-        )}
+          </header>
 
-        <div
-          className="flex flex-1 flex-col gap-3 overflow-y-auto p-5"
-          ref={logRef}
-        >
-          <div className="mb-0.5 self-center text-center text-xs text-[#9a938a]">
-            New conversation with Nova
-          </div>
-
-          {messages.map((m) => {
-            const parts = Array.isArray(m.parts) ? m.parts : [];
-            // Stable signal: the greeting is a fixed message with a fixed id.
-            // Never infer "Markdown-ness" from tokens in the text, because
-            // streaming text changes would flip the renderer and flicker.
-            const isGreeting = m.id === INITIAL_GREETING.id;
-
-            if (m.role === 'user') {
-              const fileParts = parts.filter((p) => p.type === 'file');
-              const rawText = parts
-                .filter((p) => p.type === 'text')
-                .map((p) => p.text)
-                .join(' ');
-              const displayText = formatUserDisplayText(rawText);
-
-              return (
-                <div
-                  className="msg-bubble msg-user max-w-[82%] self-end break-words rounded-[15px] rounded-br-[5px] bg-[#23453c] px-[13px] py-2.5 text-left text-[15px] leading-normal text-white [overflow-wrap:anywhere]"
-                  key={m.id}
-                >
-                  {fileParts.map((fp, i) =>
-                    fp.mediaType?.startsWith('image/') ? (
-                      <img
-                        key={i}
-                        className="mb-1.5 block w-full max-w-[220px] rounded-[9px]"
-                        src={fp.url}
-                        alt={fp.filename || 'Attached'}
-                      />
-                    ) : null
+          {/* Human Specialist Active Status Strip */}
+          {humanMode !== 'ai' && (
+            <div
+              className={cn(
+                'flex items-center justify-between gap-3 border-b px-6 py-2.5 text-[12.5px]',
+                humanMode === 'connected'
+                  ? 'border-emerald-200/80 bg-emerald-50/70 text-emerald-950'
+                  : 'border-[#E7E5E4] bg-white text-[#44403C]'
+              )}
+            >
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span
+                  className={cn(
+                    'size-2 flex-none rounded-full',
+                    humanMode === 'connected'
+                      ? 'bg-emerald-500'
+                      : 'bg-amber-500 animate-ping'
                   )}
-                  {displayText && <MarkdownContent text={displayText} />}
-                </div>
-              );
-            }
-
-            // 提取思考过程（AI SDK 原生 reasoning part 或模型在正文中包含的 <think> 标签）
-            const reasoningParts = parts.filter(
-              (p) => p.type === 'reasoning' || p.type === 'thought'
-            );
-            let reasoningText = reasoningParts
-              .map((p) => p.text || p.reasoningText || '')
-              .join('\n')
-              .trim();
-
-            let textContent = parts
-              .filter((p) => p.type === 'text')
-              .map((p) => p.text)
-              .join('\n');
-
-            if (!reasoningText && textContent.includes('<think>')) {
-              const match = textContent.match(/<think>([\s\S]*?)(?:<\/think>|$)/);
-              if (match) {
-                reasoningText = match[1].trim();
-                textContent = textContent.replace(/<think>[\s\S]*?(?:<\/think>|$)/, '').trim();
-              }
-            } else {
-              textContent = textContent.trim();
-            }
-
-            if (!textContent && !reasoningText) return null;
-
-            return (
-              <div
-                className="msg-bubble msg-assistant relative max-w-[82%] self-start break-words rounded-[15px] rounded-bl-[5px] border border-[#e6e1d9] bg-[#efece6] px-[13px] py-2.5 text-left text-[15px] leading-normal [overflow-wrap:anywhere]"
-                key={m.id}
-              >
-                <div className="flex items-center justify-between mb-1.5 border-b border-[#e2ddd5]/60 pb-1">
-                  <span className="text-[11.5px] font-semibold text-[#6e685f]">Nova</span>
-                </div>
-
-                <ThinkingProcess
-                  text={reasoningText}
-                  isStreaming={!textContent && status === 'streaming'}
                 />
-                {textContent ? (
-                  isGreeting ? (
-                    <div className="whitespace-pre-wrap">{textContent}</div>
-                  ) : (
-                    <MarkdownContent text={formatAssistantMarkdown(textContent)} />
-                  )
-                ) : null}
-              </div>
-            );
-          })}
-
-          {humanMode !== 'ai' &&
-            humanMessages.map((hm) => {
-            if (hm.sender === 'system') {
-              return (
-                <div key={hm.id} className="my-1 self-center text-center">
-                  <span className="inline-block rounded-full bg-[#e6e1d9]/75 px-3 py-0.5 text-[11.5px] text-[#6e685f]">
-                    {hm.text} · {hm.time}
-                  </span>
-                </div>
-              );
-            }
-
-            if (hm.sender === 'customer') {
-              return (
-                <div
-                  key={hm.id}
-                  className="msg-bubble msg-user max-w-[82%] self-end break-words rounded-[15px] rounded-br-[5px] bg-[#23453c] px-[13px] py-2.5 text-left text-[15px] leading-normal text-white [overflow-wrap:anywhere]"
-                >
-                  {hm.kind === 'transcript' ? (
-                    <div className="space-y-1">
-                      {hm.sourceText && <div>{hm.sourceText}</div>}
-                      {hm.translatedText && (
-                        <div className="border-t border-white/20 pt-1 text-xs text-white/80">
-                          译文: {hm.translatedText}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    hm.text
-                  )}
-                </div>
-              );
-            }
-
-            return (
-              <div
-                key={hm.id}
-                className="msg-bubble max-w-[82%] self-start break-words rounded-[15px] rounded-bl-[5px] border border-emerald-700/25 bg-white px-[13px] py-2.5 text-left text-[15px] leading-normal text-[#211f1b] shadow-2xs [overflow-wrap:anywhere]"
-              >
-                <div className="mb-1.5 flex items-center gap-1.5 border-b border-emerald-700/15 pb-1">
-                  <span className="size-2 rounded-full bg-emerald-500" />
-                  <span className="text-[11.5px] font-semibold text-[#23453c]">
-                    客服 · {hm.senderName || '专员'}
-                  </span>
-                  <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[10px] font-medium text-emerald-700">
-                    人工
-                  </span>
-                  <span className="ml-auto text-[10.5px] text-[#9a938a]">{hm.time}</span>
-                </div>
-                {hm.kind === 'transcript' ? (
-                  <div className="space-y-1">
-                    {hm.translatedText && (
-                      <div className="font-medium">{hm.translatedText}</div>
-                    )}
-                    {hm.sourceText && (
-                      <div className="border-t border-[#efece6] pt-1 text-xs text-[#7c766e]">
-                        原文: {hm.sourceText}
-                      </div>
-                    )}
+                <span className="truncate font-medium">
+                  {humanMode === 'connected'
+                    ? `Live Voice Active with Specialist ${humanAgentName || 'Agent'}`
+                    : 'Requesting an available support specialist…'}
+                </span>
+                {humanMode === 'connected' && (
+                  <div className="hidden h-1.5 w-14 overflow-hidden rounded-full bg-emerald-200/80 sm:block">
+                    <div
+                      className="h-full bg-emerald-600 transition-all duration-75"
+                      style={{ width: `${Math.round(humanMicLevel * 100)}%` }}
+                    />
                   </div>
-                ) : (
-                  <div className="whitespace-pre-wrap">{hm.text}</div>
                 )}
               </div>
-            );
-          })}
 
-          {showLoading && (
-            <div className="max-w-[82%] self-start px-[13px] py-2.5 text-[13.5px] text-[#9a938a]">
-              {uploading
-                ? 'Uploading attachment (正在上传附件)…'
-                : currentToolCall
-                  ? TOOL_STATUS_LABELS[currentToolCall] || `Running ${currentToolCall}…`
-                  : '…'}
+              <div className="flex flex-none items-center gap-2">
+                {humanMode === 'connected' && (
+                  <button
+                    type="button"
+                    onClick={toggleHumanMute}
+                    className={cn(
+                      'flex cursor-pointer items-center gap-1 rounded-full border px-3 py-1 text-[11.5px] font-medium transition-colors',
+                      humanMuted
+                        ? 'border-amber-300 bg-amber-50 text-amber-900'
+                        : 'border-[#18181B]/25 bg-white text-[#18181B] hover:bg-[#FAF9F6]'
+                    )}
+                  >
+                    {humanMuted ? <MicOff className="size-3" /> : <Mic className="size-3" />}
+                    <span>{humanMuted ? 'Muted' : 'Mute'}</span>
+                  </button>
+                )}
+                {humanMode === 'ringing' && (
+                  <a
+                    href="/agent"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 rounded-full border border-[#D6D3CD] bg-white px-3 py-1 text-[11.5px] font-medium text-[#18181B] no-underline hover:bg-[#F4F3EF]"
+                  >
+                    <span>Open Specialist Console</span>
+                    <ExternalLink className="size-3" />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={handleToggleHumanChat}
+                  className="cursor-pointer rounded-full border border-[#C88A8A] bg-white px-3 py-1 text-[11.5px] font-medium text-[#9F4A4A] hover:bg-[#FDF2F2]"
+                >
+                  {humanMode === 'connected' ? 'End Call' : 'Cancel'}
+                </button>
+              </div>
             </div>
           )}
 
-          {displayError && (
-            <div className="flex max-w-full items-center gap-2.5 self-center rounded-[15px] border border-[#e4c7c0] bg-[#f6e6e2] px-[13px] py-2.5 text-center text-[13px] text-[#8a2f24]">
-              <span>{displayError}</span>
+          {/* Live AI Voice Call Status Strip */}
+          {isCallActive && (
+            <div className="flex items-center justify-between gap-3 border-b border-[#ECEAE4] bg-white px-6 py-2.5 text-[12.5px] text-[#18181B]">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span
+                  className={cn(
+                    'size-2 flex-none rounded-full',
+                    callState === 'speaking'
+                      ? 'bg-emerald-500 animate-ping'
+                      : 'bg-emerald-500 animate-pulse'
+                  )}
+                />
+                <span className="truncate font-medium">
+                  {callState === 'connecting'
+                    ? 'Connecting to live voice…'
+                    : callState === 'speaking'
+                      ? callLiveText
+                        ? `Listening: ${callLiveText}`
+                        : 'Listening…'
+                      : callLiveText
+                        ? `Nova: ${callLiveText}`
+                        : effectiveIsPlaying || isAwaitingResponse
+                          ? 'Nova is speaking — speak anytime to interrupt'
+                          : 'Live voice active — speak naturally'}
+                </span>
+              </div>
               <button
                 type="button"
-                className="cursor-pointer rounded-lg border border-[#c9978c] bg-white px-2.5 py-0.5 text-xs font-semibold text-[#8a2f24]"
-                onClick={() => {
-                  setLocalError(null);
-                  regenerate();
-                }}
+                onClick={handleToggleCall}
+                className="flex-none cursor-pointer rounded-full border border-[#C88A8A] px-3 py-1 text-[11.5px] font-medium text-[#9F4A4A] hover:bg-[#FDF2F2]"
               >
-                Retry
+                End Call
               </button>
             </div>
           )}
 
-          {done && (
-            <div className="max-w-full self-center px-[13px] py-2.5 text-center text-[13.5px] font-semibold text-[#23453c]">
-              Intake complete — our support team picks it up from here.
-            </div>
-          )}
-        </div>
-
-        {isCallActive && (
-          <div className="flex items-center justify-between gap-3 border-t border-[#e6e1d9] bg-[#f3f0ea] px-4 py-2 text-xs text-[#211f1b]">
-            <div className="flex min-w-0 items-center gap-2">
-              <span
-                className={cn(
-                  "h-2 w-2 flex-none rounded-full",
-                  callState === "speaking"
-                    ? "bg-[#b43728] animate-ping"
-                    : callState === "finalizing"
-                      ? "bg-[#d97706]"
-                      : "bg-[#23453c] animate-pulse"
-                )}
-              />
-              <span className="truncate font-medium">
-                {callState === "connecting"
-                  ? "正在连接 Gemini Live 实时通话…"
-                  : callState === "speaking"
-                    ? callLiveText
-                      ? `正在听：${callLiveText}`
-                      : "正在听您说话…"
-                    : callLiveText
-                      ? `Nova：${callLiveText}`
-                      : effectiveIsPlaying || isAwaitingResponse
-                        ? "Nova 回复中（开口可随时打断）"
-                        : "Gemini Live 实时通话中 · 请直接说话"}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={handleToggleCall}
-              className="flex-none cursor-pointer rounded-md bg-[#b43728] px-2.5 py-1 font-medium text-white hover:bg-[#982c1f]"
-            >
-              挂断
-            </button>
-          </div>
-        )}
-
-        <form
-          className="flex gap-2 border-t border-[#e6e1d9] bg-[#fbfaf7] px-4 py-[13px]"
-          onSubmit={onSubmit}
-        >
-          <button
-            type="button"
-            className="w-[44px] flex-none cursor-pointer rounded-xl border border-[#ddd8d0] bg-white text-[17px] text-[#4a463f] disabled:cursor-default disabled:opacity-45"
-            title="Attach a photo, video, or PDF document"
-            onClick={() => fileRef.current?.click()}
-            disabled={isAwaitingResponse || done}
+          {/* Main Scrollable Content: Welcome Hero OR Message Stream */}
+          <div
+            ref={logRef}
+            className="nova-scroll flex flex-1 flex-col overflow-y-auto px-6 py-6"
           >
-            ⏍
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/heic,image/webp,video/mp4,video/quicktime,application/pdf,.pdf"
-            hidden
-            onChange={onFileChange}
-          />
+            {showWelcome ? (
+              <div className="mx-auto flex my-auto w-full max-w-[640px] flex-col items-center justify-center py-6">
+                <h2 className="m-0 text-center text-[28px] sm:text-[34px] font-semibold tracking-[-0.03em] text-[#18181B]">
+                  How can I help you today?
+                </h2>
+                <p className="m-0 mt-2.5 max-w-[460px] text-center text-[15px] leading-relaxed text-[#78716C]">
+                  Instant order tracking, live warehouse stock, and guided warranty support.
+                </p>
 
-          {/* 麦克风按住说话按钮 */}
-          <VoiceInputButton
-            disabled={isAwaitingResponse || done || isCallActive}
-            onTranscribed={(text) => {
-              const trimmed = text?.trim();
-              if (trimmed) {
-                setInput((prev) => (prev ? `${prev} ${trimmed}` : trimmed));
-                fieldRef.current?.focus();
-              }
-            }}
-          />
+                <div className="mt-8 grid w-full grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  {QUICK_PROMPTS.map(({ id, title, subtitle, prompt, Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => handleQuickPrompt(prompt)}
+                      disabled={isAwaitingResponse || done}
+                      className="group flex cursor-pointer items-start gap-3.5 rounded-2xl border border-[#E7E5E4] bg-white p-[18px] text-left shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all hover:border-[#D6D3CD] hover:shadow-[0_4px_14px_rgba(0,0,0,0.05)] disabled:cursor-default disabled:opacity-50"
+                    >
+                      <div className="mt-0.5 flex size-9 flex-none items-center justify-center rounded-xl border border-[#ECEAE4] bg-[#FAF9F6] text-[#18181B] transition-colors group-hover:border-[#18181B]/20">
+                        <Icon className="size-[18px] stroke-[1.6]" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[14.5px] font-semibold tracking-[-0.01em] text-[#18181B]">
+                          {title}
+                        </div>
+                        <div className="mt-1 text-[12.5px] leading-snug text-[#78716C]">
+                          {subtitle}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4">
+                {messages.map((m) => {
+                  const parts = Array.isArray(m.parts) ? m.parts : [];
 
-          <input
-            ref={fieldRef}
-            className="flex-1 rounded-xl border border-[#ddd8d0] bg-white px-3.5 py-[11px] text-[15px] text-[#211f1b] placeholder:text-[#9a938a] focus:outline focus:outline-2 focus:-outline-offset-1 focus:outline-[#23453c]"
-            placeholder={
-              done
-                ? 'Conversation finished — refresh to restart'
-                : humanMode === 'connected'
-                  ? `直接说话（自动翻译），或发文字给客服 ${humanAgentName || ''}…`
-                  : humanMode === 'ringing'
-                    ? '正在等待人工客服接听…'
-                    : 'Type your message or hold mic…'
-            }
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={done || humanMode === 'ringing'}
-            autoFocus
-          />
-          {status === 'streaming' || status === 'submitted' ? (
-            <button
-              className="cursor-pointer rounded-xl border-none bg-[#23453c] px-5 py-[11px] font-semibold text-white"
-              type="button"
-              onClick={() => stop()}
+                  if (m.role === 'user') {
+                    const fileParts = parts.filter((p) => p.type === 'file');
+                    const rawText = parts
+                      .filter((p) => p.type === 'text')
+                      .map((p) => p.text)
+                      .join(' ');
+                    const displayText = formatUserDisplayText(rawText);
+
+                    return (
+                      <div
+                        key={m.id}
+                        className="msg-bubble msg-user max-w-[78%] self-end break-words rounded-[20px] rounded-br-[5px] bg-[#18181B] px-4 py-3 text-left text-[14.5px] leading-[1.55] text-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] [overflow-wrap:anywhere]"
+                      >
+                        {fileParts.map((fp, i) =>
+                          fp.mediaType?.startsWith('image/') ? (
+                            <img
+                              key={i}
+                              className="mb-2 block w-full max-w-[240px] rounded-xl"
+                              src={fp.url}
+                              alt={fp.filename || 'Attached'}
+                            />
+                          ) : null
+                        )}
+                        {displayText && <MarkdownContent text={displayText} />}
+                      </div>
+                    );
+                  }
+
+                  const toolParts = parts.filter((p) => isToolUIPart(p));
+
+                  const reasoningParts = parts.filter(
+                    (p) => p.type === 'reasoning' || p.type === 'thought'
+                  );
+                  let reasoningText = reasoningParts
+                    .map((p) => p.text || p.reasoningText || '')
+                    .join('\n')
+                    .trim();
+
+                  let textContent = parts
+                    .filter((p) => p.type === 'text')
+                    .map((p) => p.text)
+                    .join('\n');
+
+                  if (!reasoningText && textContent.includes('<think>')) {
+                    const match = textContent.match(/<think>([\s\S]*?)(?:<\/think>|$)/);
+                    if (match) {
+                      reasoningText = match[1].trim();
+                      textContent = textContent
+                        .replace(/<think>[\s\S]*?(?:<\/think>|$)/, '')
+                        .trim();
+                    }
+                  } else {
+                    textContent = textContent.trim();
+                  }
+
+                  if (!textContent && !reasoningText && toolParts.length === 0) {
+                    return null;
+                  }
+
+                  return (
+                    <div
+                      key={m.id}
+                      className="flex w-full max-w-[88%] flex-col items-start gap-2.5 self-start"
+                    >
+                      {/* Structured NetSuite ERP Cards & Running Tool Pills */}
+                      {toolParts.map((tp, idx) => {
+                        const tName = getToolName(tp);
+                        const tOutput = tp.output ?? tp.result;
+                        return (
+                          <ToolResultCard
+                            key={tp.toolCallId || `${m.id}-tool-${idx}`}
+                            toolName={tName}
+                            state={tp.state}
+                            output={tOutput}
+                          />
+                        );
+                      })}
+
+                      <ThinkingProcess
+                        text={reasoningText}
+                        isStreaming={!textContent && status === 'streaming'}
+                      />
+
+                      {textContent ? (
+                        <div className="msg-bubble msg-assistant max-w-full break-words rounded-[20px] rounded-tl-[5px] border border-[#E7E5E4] bg-white px-4 py-3 text-left text-[14.5px] leading-[1.6] text-[#18181B] shadow-[0_1px_3px_rgba(0,0,0,0.02)] [overflow-wrap:anywhere]">
+                          <MarkdownContent text={formatAssistantMarkdown(textContent)} />
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+
+                {/* Human Specialist Transcript & Chat Stream */}
+                {humanMode !== 'ai' &&
+                  humanMessages.map((hm) => {
+                    if (hm.sender === 'system') {
+                      return (
+                        <div key={hm.id} className="my-1 self-center text-center">
+                          <span className="inline-block rounded-full border border-[#E5E4DF] bg-white px-3.5 py-1 text-[11.5px] text-[#78716C]">
+                            {hm.text} · {hm.time}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    if (hm.sender === 'customer') {
+                      return (
+                        <div
+                          key={hm.id}
+                          className="msg-bubble msg-user max-w-[78%] self-end break-words rounded-[20px] rounded-br-[5px] bg-[#18181B] px-4 py-3 text-left text-[14.5px] leading-[1.55] text-white [overflow-wrap:anywhere]"
+                        >
+                          {hm.kind === 'transcript' ? (
+                            <div className="space-y-1.5">
+                              {hm.sourceText && <div>{hm.sourceText}</div>}
+                              {hm.translatedText && (
+                                <div className="border-t border-white/15 pt-1.5 text-[12px] text-white/70">
+                                  Live Caption · Translated
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            hm.text
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={hm.id}
+                        className="msg-bubble max-w-[82%] self-start break-words rounded-[20px] rounded-tl-[5px] border border-[#E5E4DF] bg-white px-4 py-3 text-left text-[14.5px] leading-[1.6] text-[#18181B] shadow-[0_1px_3px_rgba(0,0,0,0.03)] [overflow-wrap:anywhere]"
+                      >
+                        <div className="mb-1.5 flex items-center gap-2 text-[12px] text-[#78716C]">
+                          <span className="size-1.5 rounded-full bg-emerald-500" />
+                          <span className="font-semibold text-[#18181B]">
+                            Specialist {hm.senderName || ''}
+                          </span>
+                          <span>·</span>
+                          <span>{hm.time}</span>
+                        </div>
+                        {hm.kind === 'transcript' ? (
+                          <div className="space-y-1.5">
+                            {hm.translatedText && <div>{hm.translatedText}</div>}
+                            {hm.sourceText && (
+                              <div className="text-[12px] text-[#8C8881]">
+                                Live Caption · Translated Ready
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="whitespace-pre-wrap">{hm.text}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                {/* Fallback Loading Indicator (when uploading or waiting before first token/tool) */}
+                {showLoading && !currentToolCall && (
+                  <div className="inline-flex items-center gap-2 self-start rounded-full border border-[#E7E5E4] bg-white px-3.5 py-1.5 text-[12.5px] text-[#78716C]">
+                    <Loader2 className="size-3.5 animate-spin text-[#18181B]" />
+                    <span>{uploading ? 'Uploading attachment…' : 'Thinking…'}</span>
+                  </div>
+                )}
+
+                {displayError && (
+                  <div className="flex max-w-full items-center gap-3 self-center rounded-2xl border border-[#E5C9C9] bg-[#FDF5F5] px-4 py-2.5 text-center text-[13px] text-[#8F3A3A]">
+                    <span>{displayError}</span>
+                    <button
+                      type="button"
+                      className="cursor-pointer rounded-full border border-[#D8A8A8] bg-white px-3 py-0.5 text-xs font-medium text-[#8F3A3A] hover:bg-[#FCF0F0]"
+                      onClick={() => {
+                        setLocalError(null);
+                        regenerate();
+                      }}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+
+                {done && (
+                  <div className="my-2 self-center rounded-full border border-[#E5E4DF] bg-white px-4 py-1.5 text-center text-[13px] font-medium text-[#18181B]">
+                    Intake complete — our support team will take it from here.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Floating Rounded Pill Composer */}
+          <div className="flex-none px-6 pb-6 pt-2">
+            <form
+              onSubmit={onSubmit}
+              className="mx-auto flex w-full max-w-[760px] items-center gap-1.5 rounded-full border border-[#E5E4DF] bg-white py-2 pl-5 pr-2 shadow-[0_2px_14px_rgba(0,0,0,0.04)] transition-all focus-within:border-[#18181B]/25 focus-within:shadow-[0_4px_22px_rgba(0,0,0,0.07)]"
             >
-              Stop
-            </button>
-          ) : (
-            <button
-              className="cursor-pointer rounded-xl border-none bg-[#23453c] px-5 py-[11px] font-semibold text-white disabled:cursor-default disabled:opacity-45"
-              type="submit"
-              disabled={isAwaitingResponse || done || !input.trim()}
-            >
-              Send
-            </button>
-          )}
-        </form>
-      </div>
+              <input
+                ref={fieldRef}
+                className="min-w-0 flex-1 border-none bg-transparent py-1.5 text-[15px] text-[#18181B] placeholder:text-[#8C8881] focus:outline-none disabled:opacity-50"
+                placeholder={
+                  done
+                    ? 'Conversation complete — refresh to start a new enquiry'
+                    : humanMode === 'connected'
+                      ? `Speak directly or type a message to ${humanAgentName || 'Specialist'}…`
+                      : humanMode === 'ringing'
+                        ? 'Waiting for a specialist to answer…'
+                        : 'Ask about an order, product, or warranty...'
+                }
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                disabled={done || humanMode === 'ringing'}
+                autoFocus
+              />
+
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/heic,image/webp,video/mp4,video/quicktime,application/pdf,.pdf"
+                hidden
+                onChange={onFileChange}
+              />
+
+              {/* Paperclip Attachment Icon */}
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={isAwaitingResponse || done}
+                title="Attach photo, video, or PDF"
+                aria-label="Attach photo, video, or PDF"
+                className="flex size-9 flex-none cursor-pointer items-center justify-center rounded-full text-[#78716C] transition-colors hover:bg-[#F4F3EF] hover:text-[#18181B] disabled:cursor-default disabled:opacity-35"
+              >
+                <Paperclip className="size-[18px] stroke-[1.75]" />
+              </button>
+
+              {/* Hold-to-Speak Microphone Button */}
+              <VoiceInputButton
+                disabled={isAwaitingResponse || done || isCallActive}
+                onTranscribed={(text) => {
+                  const trimmed = text?.trim();
+                  if (trimmed) {
+                    setInput((prev) => (prev ? `${prev} ${trimmed}` : trimmed));
+                    fieldRef.current?.focus();
+                  }
+                }}
+              />
+
+              {/* Circular Obsidian Send / Stop Button */}
+              {status === 'streaming' || status === 'submitted' ? (
+                <button
+                  type="button"
+                  onClick={() => stop()}
+                  title="Stop response"
+                  aria-label="Stop response"
+                  className="ml-0.5 flex size-9 flex-none cursor-pointer items-center justify-center rounded-full bg-[#18181B] text-white transition-colors hover:bg-[#27272A]"
+                >
+                  <Square className="size-3.5 fill-current" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isAwaitingResponse || done || !input.trim()}
+                  title="Send message"
+                  aria-label="Send message"
+                  className="ml-0.5 flex size-9 flex-none cursor-pointer items-center justify-center rounded-full bg-[#18181B] text-white transition-all hover:bg-[#27272A] disabled:cursor-default disabled:opacity-25"
+                >
+                  <ArrowUp className="size-[18px] stroke-[2]" />
+                </button>
+              )}
+            </form>
+          </div>
+        </main>
       </div>
     </div>
   );

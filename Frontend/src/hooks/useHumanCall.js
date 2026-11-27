@@ -106,8 +106,8 @@ export function useHumanCall({
     } catch (err) {
       const msg =
         err?.name === "NotAllowedError"
-          ? "麦克风权限被拒绝，您仍可使用文字输入沟通。"
-          : `麦克风启动失败：${err?.message || err}`;
+          ? "Microphone access was denied. You can continue chatting via text."
+          : `Microphone error: ${err?.message || err}`;
       setCallError(msg);
     }
   }, []);
@@ -185,8 +185,8 @@ export function useHumanCall({
         case "busy":
           stopAudio();
           setStatus("idle");
-          setCallError(msg.message || "当前人工客服正在通话中，请稍后再试。");
-          onBusyRef.current?.(msg.message || "当前人工客服正在通话中，请稍后再试。");
+          setCallError(msg.message || "All specialists are currently on another call. Please try again shortly.");
+          onBusyRef.current?.(msg.message || "All specialists are currently on another call. Please try again shortly.");
           break;
 
         case "rejected":
@@ -194,7 +194,7 @@ export function useHumanCall({
           setStatus("idle");
           setMessages([]);
           setLiveStatusText("");
-          onRejectedRef.current?.("当前人工客服正忙，请稍后再试或继续向 AI 助手提问。");
+          onRejectedRef.current?.("Specialists are currently busy. Please try again shortly or continue chatting with Nova.");
           break;
 
         case "connected":
@@ -207,7 +207,7 @@ export function useHumanCall({
               id: `sys-${Date.now()}`,
               kind: "system",
               sender: "system",
-              text: `已接通跨语言人工通话（${msg.agentName || "客服"} · 中文 ⇄ English）`,
+              text: `Connected with Specialist ${msg.agentName || "Agent"} · Live Voice Translation Active`,
               time: msg.time || nowTime(),
             },
           ]);
@@ -237,7 +237,7 @@ export function useHumanCall({
           break;
 
         case "error":
-          setCallError(msg.message || "实时翻译异常");
+          setCallError(msg.message || "Live translation encountered an error.");
           break;
 
         case "ended":
@@ -288,7 +288,7 @@ export function useHumanCall({
         }
       };
       ws.onerror = () => {
-        setCallError("无法连接到后端 /ws/human，请确认 NewBackend 已启动。");
+        setCallError("Unable to connect to specialist service (/ws/human). Ensure the backend is running.");
       };
     };
 
@@ -360,7 +360,7 @@ export function useHumanCall({
         setStatus("idle");
       };
       ws.onerror = () => {
-        setCallError("无法连接到人工通话服务，请确认后端已启动。");
+        setCallError("Unable to reach live specialist support. Please check your connection.");
       };
     },
     [caseRef, handleServerMessage, role, stopAudio]
