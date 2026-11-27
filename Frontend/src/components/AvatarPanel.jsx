@@ -171,12 +171,7 @@ export function AvatarPanel({
             <button
               type="button"
               onClick={onToggleCollapse}
-              className={cn(
-                'flex size-8 cursor-pointer items-center justify-center rounded-full border backdrop-blur-md transition-colors',
-                isConnected
-                  ? 'border-white/25 bg-black/25 text-white hover:bg-black/40'
-                  : 'border-[#E2DFD7] bg-white/85 text-[#57534E] hover:bg-white hover:text-[#18181B]'
-              )}
+              className="flex size-8 cursor-pointer items-center justify-center rounded-full border border-[#D8D4CB] bg-white/90 text-[#18181B] shadow-[0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur-md transition-colors hover:bg-white"
               title="Hide side panel"
               aria-label="Hide side panel"
             >
@@ -185,16 +180,16 @@ export function AvatarPanel({
           </div>
         )}
 
-        {/* Top-Right: Discreet 3D Live Toggle (only needed when connected) */}
+        {/* Top-Right: Crisp High-Contrast 3D Live Toggle */}
         {isConnected && (
           <div className="absolute top-3 right-3 z-20">
             <button
               type="button"
               onClick={onDisconnect}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/25 bg-black/25 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-md transition-all hover:bg-black/40"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#D8D4CB] bg-white/90 px-2.5 py-1 text-[11.5px] font-semibold text-[#18181B] shadow-[0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur-md transition-all hover:bg-white"
               title="Pause 3D avatar (switch to audio-only)"
             >
-              <Sparkles className="size-3" />
+              <span className="size-1.5 rounded-full bg-emerald-500" />
               <span>3D Live</span>
             </button>
           </div>
@@ -205,9 +200,9 @@ export function AvatarPanel({
           <button
             type="button"
             onClick={onUnlockAudio}
-            className="absolute top-14 left-1/2 z-20 flex -translate-x-1/2 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-white/20 bg-[#18181B]/85 px-3 py-1 text-[11px] font-medium text-white shadow-md backdrop-blur-md hover:bg-[#18181B]"
+            className="absolute top-14 left-1/2 z-20 flex -translate-x-1/2 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full bg-[#18181B] px-3.5 py-1.5 text-[11.5px] font-medium text-white shadow-md hover:bg-[#27272A]"
           >
-            <Volume2 className="size-3" />
+            <Volume2 className="size-3.5" />
             <span>Tap to enable audio</span>
           </button>
         )}
@@ -217,18 +212,18 @@ export function AvatarPanel({
           <div className="absolute inset-0 z-10 bg-black/20 backdrop-blur-[2px] transition-opacity" />
         )}
 
-        {/* Bottom Compact Waveform Pill (shown when 3D is active or audio is active) */}
-        {(isConnected || isSpeaking || isCallActive) && (
+        {/* Bottom High-Contrast Frosted Ivory Status Pill */}
+        {(isConnected || isSpeaking || isCallActive || isAwaitingResponse) && (
           <div className="absolute inset-x-3.5 bottom-3.5 z-20 flex justify-center">
-            <div className="flex max-w-full items-center gap-2.5 rounded-full border border-white/15 bg-[#3A3530]/72 px-4 py-2 text-white shadow-[0_6px_20px_rgba(0,0,0,0.16)] backdrop-blur-md">
+            <div className="flex max-w-full items-center gap-2.5 rounded-full border border-[#D8D4CB] bg-white/95 px-4 py-2 text-[#18181B] shadow-[0_4px_16px_rgba(0,0,0,0.09)] backdrop-blur-md">
               <div className="flex h-4 flex-none items-center gap-[2.5px]">
                 {WAVE_HEIGHTS.map((h, idx) => (
                   <span
                     key={idx}
                     className={cn(
-                      'w-[2px] rounded-full bg-white/90 transition-all duration-300',
+                      'w-[2px] rounded-full bg-[#18181B] transition-all duration-300',
                       isAudioAnimating && 'nova-wave-bar',
-                      !isAudioAnimating && idx % 2 === 1 && 'bg-white/55'
+                      !isAudioAnimating && idx % 2 === 1 && 'bg-[#18181B]/40'
                     )}
                     style={{
                       height: `${isAudioAnimating ? Math.max(8, Math.round(h * 0.7)) : Math.round(h * 0.5)}px`,
@@ -238,11 +233,15 @@ export function AvatarPanel({
                 ))}
               </div>
 
-              <span className="truncate text-[12px] font-medium tracking-[-0.01em] text-white/95">
+              <span className="truncate text-[12.5px] font-semibold tracking-[-0.01em] text-[#18181B]">
                 {statusText}
               </span>
-              {showReadyDot && (
-                <span className="size-1.5 flex-none rounded-full bg-emerald-400" />
+              {currentToolLabel || isAwaitingResponse ? (
+                <span className="size-2 flex-none animate-pulse rounded-full bg-amber-500" />
+              ) : (
+                showReadyDot && (
+                  <span className="size-2 flex-none rounded-full bg-emerald-500" />
+                )
               )}
             </div>
           </div>

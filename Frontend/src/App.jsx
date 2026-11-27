@@ -892,15 +892,17 @@ export default function App() {
                 <span className="truncate font-medium">
                   {callState === 'connecting'
                     ? 'Connecting to live voice…'
-                    : callState === 'speaking'
-                      ? callLiveText
-                        ? `Listening: ${callLiveText}`
-                        : 'Listening…'
-                      : callLiveText
-                        ? `Nova: ${callLiveText}`
-                        : effectiveIsPlaying || isAwaitingResponse
-                          ? 'Nova is speaking — speak anytime to interrupt'
-                          : 'Live voice active — speak naturally'}
+                    : liveToolName
+                      ? TOOL_STATUS_LABELS[liveToolName] || `Running ${liveToolName}…`
+                      : callState === 'speaking'
+                        ? callLiveText
+                          ? `Listening: ${callLiveText}`
+                          : 'Listening…'
+                        : callLiveText
+                          ? `Nova: ${callLiveText}`
+                          : effectiveIsPlaying || isAwaitingResponse
+                            ? 'Nova is speaking — speak anytime to interrupt'
+                            : 'Live voice active — speak naturally'}
                 </span>
               </div>
               <button
@@ -1025,15 +1027,17 @@ export default function App() {
                     >
                       <NovaAvatar src={avatar.thumbnailUrl} />
                       <div className="flex min-w-0 max-w-[82%] flex-col items-start gap-2">
-                        {/* Structured NetSuite ERP Cards & Running Tool Pills */}
+                        {/* Database / NetSuite ERP Tool Trace Pills & Structured Cards */}
                         {toolParts.map((tp, idx) => {
                           const tName = getToolName(tp);
+                          const tInput = tp.input ?? tp.args;
                           const tOutput = tp.output ?? tp.result;
                           return (
                             <ToolResultCard
                               key={tp.toolCallId || `${m.id}-tool-${idx}`}
                               toolName={tName}
                               state={tp.state}
+                              input={tInput}
                               output={tOutput}
                             />
                           );
