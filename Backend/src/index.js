@@ -5,6 +5,7 @@ import { listNetSuiteMcpTools } from "./erp/netsuite.js";
 import { attachAsrWebSocketServer } from "./audio/asrWsServer.js";
 import { attachTtsWebSocketServer } from "./audio/ttsWsServer.js";
 import { attachHumanCallWebSocketServer } from "./audio/humanCallWsServer.js";
+import { attachLiveAiWebSocketServer } from "./audio/liveAiWsServer.js";
 import { getDashScopeTtsConfig, isDashScopeTtsEnabled } from "./audio/dashscopeTts.js";
 import {
   attachLamWebSocketServer,
@@ -62,6 +63,7 @@ const server = http.createServer(async (req, res) => {
 attachAsrWebSocketServer(server);
 attachTtsWebSocketServer(server);
 attachHumanCallWebSocketServer(server);
+attachLiveAiWebSocketServer(server);
 attachLamWebSocketServer(server);
 initLamService();
 
@@ -83,6 +85,6 @@ server.listen(PORT, () => {
   console.log(`    POST /chat (or /api/chat)`);
   console.log(`    POST /upload-url (or /api/upload-url)`);
   console.log(`    GET  /lam/initconfig, /lam/asset/:fileName, /readiness`);
-  console.log(`    WS   /ws/lam-client/:sessionId, /ws/tts, /ws/asr`);
+  console.log(`    WS   /ws/lam-client/:sessionId, /ws/live-ai, /ws/tts, /ws/asr`);
   console.log(`========================================\n`);
 });

@@ -210,7 +210,7 @@ export default function App() {
   );
 
   // 核心 AI 聊天状态 Hook（参考 ai-sdk-preview-rag-study/app/(preview)/page.tsx）
-  const { messages, status, sendMessage, stop, regenerate, error } = useChat({
+  const { messages, setMessages, status, sendMessage, stop, regenerate, error } = useChat({
     messages: [INITIAL_GREETING],
     transport,
     onToolCall({ toolCall }) {
@@ -221,6 +221,9 @@ export default function App() {
     },
   });
 
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+
   const handleToggleAutoSpeak = useCallback(() => {
     stopAudio();
     avatar.interrupt();
@@ -229,16 +232,29 @@ export default function App() {
 
   const effectiveIsPlaying = avatar.isConnected ? avatar.isSpeaking : isPlaying;
 
-  // 实时语音通话（常开麦克风 + VAD 自动断句 + 开口打断 AI）
+  // 实时语音通话旁路（Gemini 3 Flash Live 端到端语音对话，直连 /ws/live-ai）
   const {
     isCallActive,
     callState,
     liveText: callLiveText,
+    liveToolName,
     callError,
     startCall,
     endCall,
   } = useLiveCall({
-    isAiBusy: status === 'streaming' || status === 'submitted' || effectiveIsPlaying,
+    sessionId: caseRef.current,
+    getHistory: () =>
+      (messagesRef.current || [])
+        .filter((m) => m.id !== INITIAL_GREETING.id && (m.role === 'user' || m.role === 'assistant'))
+        .map((m) => ({
+          role: m.role,
+          text: (m.parts || [])
+            .filter((p) => p.type === 'text' && p.text)
+            .map((p) => p.text)
+            .join('\n')
+            .trim(),
+        }))
+        .filter((t) => t.text),
     onInterrupt: () => {
       stopAudio();
       avatar.interrupt();
@@ -246,10 +262,26 @@ export default function App() {
         stop();
       }
     },
-    onUtterance: (text) => {
-      setLocalError(null);
-      avatar.unlockAudio();
-      sendMessage({ text });
+    onTurnComplete: ({ userText, assistantText }) => {
+      const now = Date.now();
+      setMessages((prev) => {
+        const next = [...prev];
+        if (userText) {
+          next.push({
+            id: `live-user-${now}`,
+            role: 'user',
+            parts: [{ type: 'text', text: userText }],
+          });
+        }
+        if (assistantText) {
+          next.push({
+            id: `live-assistant-${now + 1}`,
+            role: 'assistant',
+            parts: [{ type: 'text', text: assistantText }],
+          });
+        }
+        return next;
+      });
     },
   });
 
@@ -265,8 +297,9 @@ export default function App() {
     }
   }, [avatar, endCall, isCallActive, setAutoSpeak, startCall, stopAudio]);
 
-  // 计算当前正在执行中的工具名称
+  // 计算当前正在执行中的工具名称（兼容文字 /chat 与 Gemini Live 旁路）
   const currentToolCall = useMemo(() => {
+    if (liveToolName) return liveToolName;
     const lastAssistant = [...messages]
       .reverse()
       .find((message) => message.role === 'assistant');
@@ -281,7 +314,7 @@ export default function App() {
     );
 
     return pendingPart ? getToolName(pendingPart) : undefined;
-  }, [messages]);
+  }, [liveToolName, messages]);
 
   // 检测是否已完成售后登记
   const done = useMemo(() => {
@@ -867,15 +900,17 @@ export default function App() {
                 )}
               />
               <span className="truncate font-medium">
-                {callState === "speaking"
-                  ? callLiveText
-                    ? `正在听：${callLiveText}`
-                    : "正在听您说话…"
-                  : callState === "finalizing"
-                    ? "正在识别发送…"
-                    : effectiveIsPlaying || isAwaitingResponse
-                      ? "Nova 回复中（开口可随时打断）"
-                      : "实时通话中 · 请直接说话"}
+                {callState === "connecting"
+                  ? "正在连接 Gemini Live 实时通话…"
+                  : callState === "speaking"
+                    ? callLiveText
+                      ? `正在听：${callLiveText}`
+                      : "正在听您说话…"
+                    : callLiveText
+                      ? `Nova：${callLiveText}`
+                      : effectiveIsPlaying || isAwaitingResponse
+                        ? "Nova 回复中（开口可随时打断）"
+                        : "Gemini Live 实时通话中 · 请直接说话"}
               </span>
             </div>
             <button
