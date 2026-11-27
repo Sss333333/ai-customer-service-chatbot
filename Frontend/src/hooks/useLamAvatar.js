@@ -48,6 +48,7 @@ export function useLamAvatar({
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const [error, setError] = useState(null);
   const [zoom, setZoomState] = useState(initialZoom);
+  const [thumbnailUrl, setThumbnailUrl] = useState('/nova-3d-thumb.png');
 
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
@@ -158,6 +159,47 @@ export function useLamAvatar({
     cam.zoom = clampedZoom;
     cam.updateProjectionMatrix?.();
     r?.viewer?.forceRenderNextFrame?.();
+  }, []);
+
+  const captureLiveThumbnail = useCallback((rendererInstance) => {
+    const r = rendererInstance || rendererRef.current;
+    const scene = r?.viewer?.threeScene;
+    const glCanvas = r?.viewer?.renderer?.domElement;
+    if (!scene || !glCanvas) return;
+
+    const prevAfterRender = scene.onAfterRender;
+    let captured = false;
+
+    scene.onAfterRender = function (...args) {
+      if (typeof prevAfterRender === 'function') {
+        prevAfterRender.apply(this, args);
+      }
+      if (captured) return;
+      captured = true;
+      scene.onAfterRender = prevAfterRender;
+
+      try {
+        const cw = glCanvas.width;
+        const ch = glCanvas.height;
+        if (cw > 32 && ch > 32) {
+          const side = Math.round(Math.min(cw, ch) * 0.52);
+          const sx = Math.max(0, Math.round((cw - side) / 2));
+          const sy = Math.max(0, Math.round(ch * 0.14));
+          const thumbCanvas = document.createElement('canvas');
+          thumbCanvas.width = 144;
+          thumbCanvas.height = 144;
+          const ctx2d = thumbCanvas.getContext('2d');
+          if (ctx2d) {
+            ctx2d.fillStyle = '#EAE7E0';
+            ctx2d.fillRect(0, 0, 144, 144);
+            ctx2d.drawImage(glCanvas, sx, sy, side, side, 0, 0, 144, 144);
+            setThumbnailUrl(thumbCanvas.toDataURL('image/png'));
+          }
+        }
+      } catch {
+        // Keep static /nova-3d-thumb.png fallback if canvas read is restricted
+      }
+    };
   }, []);
 
   const setZoom = useCallback(
@@ -350,6 +392,11 @@ export function useLamAvatar({
               requestAnimationFrame(() => {
                 if (rendererRef.current) {
                   applyCameraFraming(rendererRef.current, zoomRef.current);
+                  setTimeout(() => {
+                    if (rendererRef.current) {
+                      captureLiveThumbnail(rendererRef.current);
+                    }
+                  }, 280);
                 }
               });
             }
@@ -432,7 +479,7 @@ export function useLamAvatar({
       setStatus('error');
       setError(err?.message || 'Failed to initialize 3D avatar');
     }
-  }, [applyCameraFraming, cleanup, getChatState, getExpressionData, scheduleChunk, sessionId, stopPlayback]);
+  }, [applyCameraFraming, captureLiveThumbnail, cleanup, getChatState, getExpressionData, scheduleChunk, sessionId, stopPlayback]);
 
   const disconnect = useCallback(() => {
     cleanup();
@@ -498,6 +545,7 @@ export function useLamAvatar({
     error,
     zoom,
     setZoom,
+    thumbnailUrl,
     containerRef,
     connect,
     disconnect,

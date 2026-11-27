@@ -27,6 +27,7 @@ import {
   Box,
   ShieldCheck,
   FileText,
+  Headset,
   Loader2,
 } from 'lucide-react';
 import { resizeImage } from './utils/image';
@@ -144,6 +145,73 @@ function formatAssistantMarkdown(text) {
     .replace(/(?<!\]\()\/guidance\/[^\s)]+/g, (url) => {
       return `[View batch label guide](${url})`;
     });
+}
+
+/**
+ * Framed 3D Digital Human Avatar Thumbnail (Assistant / Nova)
+ */
+function NovaAvatar({ src }) {
+  return (
+    <div className="mt-0.5 size-9 flex-none rounded-full border border-[#D8D4CB] bg-white p-[1.5px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] select-none">
+      <div className="h-full w-full overflow-hidden rounded-full bg-[#EAE7E0]">
+        <img
+          src={src || '/nova-3d-thumb.png'}
+          alt="Nova"
+          className="h-full w-full object-cover object-center scale-[1.08]"
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Framed Specialist Avatar (Human Escalation)
+ */
+function SpecialistAvatar() {
+  return (
+    <div className="mt-0.5 size-9 flex-none rounded-full border border-emerald-600/30 bg-white p-[1.5px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] select-none">
+      <div className="flex h-full w-full items-center justify-center rounded-full bg-emerald-50 text-emerald-800">
+        <Headset className="size-4 stroke-[1.8]" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Bespoke Minimalist Geometric Portrait Avatar (Customer / Self)
+ */
+function CustomerAvatar() {
+  return (
+    <div className="mt-0.5 size-9 flex-none rounded-full border border-[#18181B]/15 bg-white p-[1.5px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] select-none">
+      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#18181B]">
+        <svg
+          viewBox="0 0 36 36"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-full w-full"
+          aria-hidden="true"
+        >
+          {/* Subtle architectural halo arc */}
+          <circle cx="18" cy="18" r="14.5" stroke="#FAF9F6" strokeOpacity="0.14" strokeWidth="1" />
+          {/* Sculpted head silhouette */}
+          <circle cx="18" cy="13.5" r="5.2" fill="#FAF9F6" />
+          {/* Minimalist tailored shoulders */}
+          <path
+            d="M8.5 31C9.8 25.1 13.4 22.2 18 22.2C22.6 22.2 26.2 25.1 27.5 31"
+            fill="#FAF9F6"
+          />
+          {/* Subtle warm stone collar accent */}
+          <path
+            d="M14.8 22.5L18 26.2L21.2 22.5"
+            stroke="#18181B"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -581,7 +649,7 @@ export default function App() {
         {/* Right: Minimalist Conversational Workspace */}
         <main className="flex h-full min-w-0 flex-1 flex-col bg-[#FAF9F6]">
           {/* Header */}
-          <header className="relative flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2.5 border-b border-[#ECEAE4] px-6 py-4">
+          <header className="relative flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-2.5 border-b border-[#ECEAE4] px-6 lg:px-8 py-4">
             <div className="flex items-center gap-3 min-w-0">
               {stageCollapsed && (
                 <button
@@ -848,7 +916,7 @@ export default function App() {
           {/* Main Scrollable Content: Welcome Hero OR Message Stream */}
           <div
             ref={logRef}
-            className="nova-scroll flex flex-1 flex-col overflow-y-auto px-6 py-6"
+            className="nova-scroll flex flex-1 flex-col overflow-y-auto px-6 lg:px-8 py-6"
           >
             {showWelcome ? (
               <div className="mx-auto flex my-auto w-full max-w-[640px] flex-col items-center justify-center py-6">
@@ -884,7 +952,7 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4">
+              <div className="flex w-full flex-col gap-5">
                 {messages.map((m) => {
                   const parts = Array.isArray(m.parts) ? m.parts : [];
 
@@ -899,19 +967,22 @@ export default function App() {
                     return (
                       <div
                         key={m.id}
-                        className="msg-bubble msg-user max-w-[78%] self-end break-words rounded-[20px] rounded-br-[5px] bg-[#18181B] px-4 py-3 text-left text-[14.5px] leading-[1.55] text-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] [overflow-wrap:anywhere]"
+                        className="flex w-full items-start justify-end gap-3"
                       >
-                        {fileParts.map((fp, i) =>
-                          fp.mediaType?.startsWith('image/') ? (
-                            <img
-                              key={i}
-                              className="mb-2 block w-full max-w-[240px] rounded-xl"
-                              src={fp.url}
-                              alt={fp.filename || 'Attached'}
-                            />
-                          ) : null
-                        )}
-                        {displayText && <MarkdownContent text={displayText} />}
+                        <div className="msg-bubble msg-user max-w-[76%] break-words rounded-[20px] rounded-tr-[5px] bg-[#18181B] px-4 py-3 text-left text-[14.5px] leading-[1.55] text-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] [overflow-wrap:anywhere]">
+                          {fileParts.map((fp, i) =>
+                            fp.mediaType?.startsWith('image/') ? (
+                              <img
+                                key={i}
+                                className="mb-2 block w-full max-w-[240px] rounded-xl"
+                                src={fp.url}
+                                alt={fp.filename || 'Attached'}
+                              />
+                            ) : null
+                          )}
+                          {displayText && <MarkdownContent text={displayText} />}
+                        </div>
+                        <CustomerAvatar />
                       </div>
                     );
                   }
@@ -950,32 +1021,35 @@ export default function App() {
                   return (
                     <div
                       key={m.id}
-                      className="flex w-full max-w-[88%] flex-col items-start gap-2.5 self-start"
+                      className="flex w-full items-start justify-start gap-3"
                     >
-                      {/* Structured NetSuite ERP Cards & Running Tool Pills */}
-                      {toolParts.map((tp, idx) => {
-                        const tName = getToolName(tp);
-                        const tOutput = tp.output ?? tp.result;
-                        return (
-                          <ToolResultCard
-                            key={tp.toolCallId || `${m.id}-tool-${idx}`}
-                            toolName={tName}
-                            state={tp.state}
-                            output={tOutput}
-                          />
-                        );
-                      })}
+                      <NovaAvatar src={avatar.thumbnailUrl} />
+                      <div className="flex min-w-0 max-w-[82%] flex-col items-start gap-2">
+                        {/* Structured NetSuite ERP Cards & Running Tool Pills */}
+                        {toolParts.map((tp, idx) => {
+                          const tName = getToolName(tp);
+                          const tOutput = tp.output ?? tp.result;
+                          return (
+                            <ToolResultCard
+                              key={tp.toolCallId || `${m.id}-tool-${idx}`}
+                              toolName={tName}
+                              state={tp.state}
+                              output={tOutput}
+                            />
+                          );
+                        })}
 
-                      <ThinkingProcess
-                        text={reasoningText}
-                        isStreaming={!textContent && status === 'streaming'}
-                      />
+                        <ThinkingProcess
+                          text={reasoningText}
+                          isStreaming={!textContent && status === 'streaming'}
+                        />
 
-                      {textContent ? (
-                        <div className="msg-bubble msg-assistant max-w-full break-words rounded-[20px] rounded-tl-[5px] border border-[#E7E5E4] bg-white px-4 py-3 text-left text-[14.5px] leading-[1.6] text-[#18181B] shadow-[0_1px_3px_rgba(0,0,0,0.02)] [overflow-wrap:anywhere]">
-                          <MarkdownContent text={formatAssistantMarkdown(textContent)} />
-                        </div>
-                      ) : null}
+                        {textContent ? (
+                          <div className="msg-bubble msg-assistant max-w-full break-words rounded-[20px] rounded-tl-[5px] border border-[#E7E5E4] bg-white px-4 py-3 text-left text-[14.5px] leading-[1.6] text-[#18181B] shadow-[0_1px_3px_rgba(0,0,0,0.02)] [overflow-wrap:anywhere]">
+                            <MarkdownContent text={formatAssistantMarkdown(textContent)} />
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   );
                 })}
@@ -997,20 +1071,23 @@ export default function App() {
                       return (
                         <div
                           key={hm.id}
-                          className="msg-bubble msg-user max-w-[78%] self-end break-words rounded-[20px] rounded-br-[5px] bg-[#18181B] px-4 py-3 text-left text-[14.5px] leading-[1.55] text-white [overflow-wrap:anywhere]"
+                          className="flex w-full items-start justify-end gap-3"
                         >
-                          {hm.kind === 'transcript' ? (
-                            <div className="space-y-1.5">
-                              {hm.sourceText && <div>{hm.sourceText}</div>}
-                              {hm.translatedText && (
-                                <div className="border-t border-white/15 pt-1.5 text-[12px] text-white/70">
-                                  Live Caption · Translated
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            hm.text
-                          )}
+                          <div className="msg-bubble msg-user max-w-[76%] break-words rounded-[20px] rounded-tr-[5px] bg-[#18181B] px-4 py-3 text-left text-[14.5px] leading-[1.55] text-white [overflow-wrap:anywhere]">
+                            {hm.kind === 'transcript' ? (
+                              <div className="space-y-1.5">
+                                {hm.sourceText && <div>{hm.sourceText}</div>}
+                                {hm.translatedText && (
+                                  <div className="border-t border-white/15 pt-1.5 text-[12px] text-white/70">
+                                    Live Caption · Translated
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              hm.text
+                            )}
+                          </div>
+                          <CustomerAvatar />
                         </div>
                       );
                     }
@@ -1018,39 +1095,47 @@ export default function App() {
                     return (
                       <div
                         key={hm.id}
-                        className="msg-bubble max-w-[82%] self-start break-words rounded-[20px] rounded-tl-[5px] border border-[#E5E4DF] bg-white px-4 py-3 text-left text-[14.5px] leading-[1.6] text-[#18181B] shadow-[0_1px_3px_rgba(0,0,0,0.03)] [overflow-wrap:anywhere]"
+                        className="flex w-full items-start justify-start gap-3"
                       >
-                        <div className="mb-1.5 flex items-center gap-2 text-[12px] text-[#78716C]">
-                          <span className="size-1.5 rounded-full bg-emerald-500" />
-                          <span className="font-semibold text-[#18181B]">
-                            Specialist {hm.senderName || ''}
-                          </span>
-                          <span>·</span>
-                          <span>{hm.time}</span>
-                        </div>
-                        {hm.kind === 'transcript' ? (
-                          <div className="space-y-1.5">
-                            {hm.translatedText && <div>{hm.translatedText}</div>}
-                            {hm.sourceText && (
-                              <div className="text-[12px] text-[#8C8881]">
-                                Live Caption · Translated Ready
-                              </div>
-                            )}
+                        <SpecialistAvatar />
+                        <div className="msg-bubble max-w-[80%] break-words rounded-[20px] rounded-tl-[5px] border border-[#E5E4DF] bg-white px-4 py-3 text-left text-[14.5px] leading-[1.6] text-[#18181B] shadow-[0_1px_3px_rgba(0,0,0,0.03)] [overflow-wrap:anywhere]">
+                          <div className="mb-1.5 flex items-center gap-2 text-[12px] text-[#78716C]">
+                            <span className="size-1.5 rounded-full bg-emerald-500" />
+                            <span className="font-semibold text-[#18181B]">
+                              Specialist {hm.senderName || ''}
+                            </span>
+                            <span>·</span>
+                            <span>{hm.time}</span>
                           </div>
-                        ) : (
-                          <div className="whitespace-pre-wrap">{hm.text}</div>
-                        )}
+                          {hm.kind === 'transcript' ? (
+                            <div className="space-y-1.5">
+                              {hm.translatedText && <div>{hm.translatedText}</div>}
+                              {hm.sourceText && (
+                                <div className="text-[12px] text-[#8C8881]">
+                                  Live Caption · Translated Ready
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="whitespace-pre-wrap">{hm.text}</div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
 
-                {/* Fallback Loading Indicator (when uploading or waiting before first token/tool) */}
-                {showLoading && !currentToolCall && (
-                  <div className="inline-flex items-center gap-2 self-start rounded-full border border-[#E7E5E4] bg-white px-3.5 py-1.5 text-[12.5px] text-[#78716C]">
-                    <Loader2 className="size-3.5 animate-spin text-[#18181B]" />
-                    <span>{uploading ? 'Uploading attachment…' : 'Thinking…'}</span>
-                  </div>
-                )}
+                {/* Fallback Loading Indicator (before assistant turn streams first part) */}
+                {showLoading &&
+                  !currentToolCall &&
+                  messages[messages.length - 1]?.role !== 'assistant' && (
+                    <div className="flex w-full items-center justify-start gap-3">
+                      <NovaAvatar src={avatar.thumbnailUrl} />
+                      <div className="inline-flex items-center gap-2 rounded-full border border-[#E7E5E4] bg-white px-3.5 py-1.5 text-[12.5px] text-[#78716C]">
+                        <Loader2 className="size-3.5 animate-spin text-[#18181B]" />
+                        <span>{uploading ? 'Uploading attachment…' : 'Thinking…'}</span>
+                      </div>
+                    </div>
+                  )}
 
                 {displayError && (
                   <div className="flex max-w-full items-center gap-3 self-center rounded-2xl border border-[#E5C9C9] bg-[#FDF5F5] px-4 py-2.5 text-center text-[13px] text-[#8F3A3A]">
@@ -1077,11 +1162,11 @@ export default function App() {
             )}
           </div>
 
-          {/* Floating Rounded Pill Composer */}
-          <div className="flex-none px-6 pb-6 pt-2">
+          {/* Floating Rounded Pill Composer (Flush Aligned with Header & Avatars) */}
+          <div className="flex-none px-6 lg:px-8 pb-6 pt-2">
             <form
               onSubmit={onSubmit}
-              className="mx-auto flex w-full max-w-[760px] items-center gap-1.5 rounded-full border border-[#E5E4DF] bg-white py-2 pl-5 pr-2 shadow-[0_2px_14px_rgba(0,0,0,0.04)] transition-all focus-within:border-[#18181B]/25 focus-within:shadow-[0_4px_22px_rgba(0,0,0,0.07)]"
+              className="flex w-full items-center gap-1.5 rounded-full border border-[#E5E4DF] bg-white py-2 pl-5 pr-2 shadow-[0_2px_14px_rgba(0,0,0,0.04)] transition-all focus-within:border-[#18181B]/25 focus-within:shadow-[0_4px_22px_rgba(0,0,0,0.07)]"
             >
               <input
                 ref={fieldRef}
