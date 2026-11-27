@@ -25,7 +25,10 @@ export function AvatarPanel({
   humanMode,
 }) {
   const activityLabel = (() => {
-    if (humanMode === 'connected') return '人工客服通话中（数字人已暂停）';
+    if (humanMode === 'connected') {
+      if (isConnected && isSpeaking) return '人工客服正在说话（3D 同步播报）…';
+      return isConnected ? '人工客服通话中 · 3D 数字人同步播报' : '人工客服通话中（纯语音）';
+    }
     if (humanMode === 'ringing') return '正在呼叫人工客服…';
     if (!isConnected) {
       if (status === 'loading') return `正在加载 3D 形象 (${loadPercent}%)…`;
@@ -39,7 +42,9 @@ export function AvatarPanel({
   })();
 
   const dotClass = (() => {
-    if (humanMode === 'connected') return 'bg-emerald-500';
+    if (humanMode === 'connected') {
+      return isSpeaking ? 'bg-emerald-500 animate-pulse' : 'bg-emerald-500';
+    }
     if (!isConnected) return status === 'loading' ? 'bg-amber-400 animate-pulse' : 'bg-[#b0aaa0]';
     if (isSpeaking) return 'bg-emerald-500 animate-pulse';
     if (isCallActive && callState === 'speaking') return 'bg-[#b43728] animate-ping';
@@ -154,11 +159,11 @@ export function AvatarPanel({
             </button>
           )}
 
-          {/* 转人工覆盖提示 */}
-          {isConnected && humanMode !== 'ai' && (
+          {/* 呼叫人工中覆盖提示（接通后移除遮罩，由数字人同步播报客服译文） */}
+          {isConnected && humanMode === 'ringing' && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/35 backdrop-blur-[2px]">
               <div className="rounded-xl bg-white/95 px-4 py-2.5 text-xs font-medium text-[#211f1b] shadow-sm">
-                {humanMode === 'connected' ? '已转接人工客服，数字人暂停中' : '正在呼叫人工客服…'}
+                正在呼叫人工客服…
               </div>
             </div>
           )}
