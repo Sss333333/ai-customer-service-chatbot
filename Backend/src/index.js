@@ -5,7 +5,7 @@ import { listNetSuiteMcpTools } from "./erp/netsuite.js";
 import { attachAsrWebSocketServer } from "./audio/asrWsServer.js";
 import { attachTtsWebSocketServer } from "./audio/ttsWsServer.js";
 import { attachHumanCallWebSocketServer } from "./audio/humanCallWsServer.js";
-import { warmupEdgeTTS } from "./audio/edgeTts.js";
+import { getDashScopeTtsConfig, isDashScopeTtsEnabled } from "./audio/dashscopeTts.js";
 import {
   attachLamWebSocketServer,
   handleLamHttpRequest,
@@ -63,17 +63,18 @@ attachAsrWebSocketServer(server);
 attachTtsWebSocketServer(server);
 attachHumanCallWebSocketServer(server);
 attachLamWebSocketServer(server);
-warmupEdgeTTS();
 initLamService();
 
 server.listen(PORT, () => {
   const mcpTools = listNetSuiteMcpTools();
+  const dashTts = isDashScopeTtsEnabled() ? getDashScopeTtsConfig() : null;
   console.log(`\n========================================`);
   console.log(`  Nova AI Customer Service Backend (netsuite-mcp + LAM ONNX)`);
   console.log(`  Local server listening on http://localhost:${PORT}`);
   console.log(`  S3 Bucket:      ${process.env.S3_BUCKET_NAME || "your-s3-bucket-name"}`);
   console.log(`  LLM Provider:   OpenRouter (REST API)`);
   console.log(`  Model ID:       ${process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-ultra-550b-a55b:free"}`);
+  console.log(`  TTS Engine:     ${dashTts ? `DashScope (${dashTts.model}, voice=${dashTts.voice})` : "Disabled (set DASHSCOPE_API_KEY in .env)"}`);
   console.log(`  API Key:        ${process.env.OPENROUTER_API_KEY ? "Configured (***" + process.env.OPENROUTER_API_KEY.slice(-4) + ")" : "NOT SET (set OPENROUTER_API_KEY in .env)"}`);
   console.log(`  NetSuite ERP:   ${process.env.NETSUITE_ACCOUNT_ID ? "Enabled via netsuite-mcp (Account " + process.env.NETSUITE_ACCOUNT_ID + ")" : "Disabled"}`);
   console.log(`  MCP Foundation: ${mcpTools.length} tools mounted (${mcpTools.join(", ")})`);

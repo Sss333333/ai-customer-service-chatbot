@@ -146,7 +146,10 @@ async function processAndEmit(session, audio1d, isFinal, expectedTurn) {
     session.pendingAudio = concatFloat32(session.pendingAudio, audio1d);
   }
 
-  const sliceSamples = SAMPLE_RATE; // 1.0s slices
+  const sliceSamples = Math.max(
+    Math.round(SAMPLE_RATE * 0.2),
+    session.sliceSamples || SAMPLE_RATE
+  );
   const segments = [];
   while (session.pendingAudio.length >= sliceSamples) {
     segments.push(session.pendingAudio.slice(0, sliceSamples));
@@ -296,8 +299,10 @@ function handleLamClient(ws, sessionId) {
     turnId: 0,
     activeSpeechId: null,
     audioFormat: "mp3",
+    sliceSamples: SAMPLE_RATE,
     inferContext: null,
     pendingAudio: new Float32Array(0),
+    workChain: Promise.resolve(),
   };
   sessions.set(sessionId, session);
   console.log(`[LAM] Browser client connected: session_id=${sessionId} (total=${sessions.size})`);
@@ -373,7 +378,12 @@ export function hasLamClient(sessionId) {
   return Boolean(session?.clientWs && session.clientWs.readyState === WebSocket.OPEN);
 }
 
-export async function sendAvatarSpeechStart(sessionId, speechId, format = "mp3") {
+export async function sendAvatarSpeechStart(
+  sessionId,
+  speechId,
+  format = "mp3",
+  { sliceMs = 1000 } = {}
+) {
   if (!hasLamClient(sessionId)) return false;
   const readyEngine = await getReadyEngine();
   if (!readyEngine) return false;
@@ -384,8 +394,13 @@ export async function sendAvatarSpeechStart(sessionId, speechId, format = "mp3")
   session.turnId += 1;
   session.activeSpeechId = speechId || `${sessionId}:${session.turnId}`;
   session.audioFormat = format || "mp3";
+  session.sliceSamples = Math.max(
+    Math.round(SAMPLE_RATE * 0.2),
+    Math.round((SAMPLE_RATE * sliceMs) / 1000)
+  );
   session.inferContext = null;
   session.pendingAudio = new Float32Array(0);
+  session.workChain = Promise.resolve();
   return true;
 }
 
@@ -396,15 +411,22 @@ export async function sendAvatarAudioBuffer(sessionId, audioBuffer) {
   const session = sessions.get(sessionId);
   if (!session) return false;
 
-  try {
-    const expectedTurn = session.turnId;
-    const rawBuf = Buffer.isBuffer(audioBuffer) ? audioBuffer : Buffer.from(audioBuffer);
-    const audio1d = await decodeAudioToFloat32Mono(rawBuf, session.audioFormat || "mp3", SAMPLE_RATE);
-    return await processAndEmit(session, audio1d, false, expectedTurn);
-  } catch (err) {
-    console.error(`[LAM] Failed to process in-process audio (${sessionId}):`, err);
-    return false;
-  }
+  const expectedTurn = session.turnId;
+  const rawBuf = Buffer.isBuffer(audioBuffer) ? audioBuffer : Buffer.from(audioBuffer);
+  const format = session.audioFormat || "mp3";
+
+  const task = session.workChain.then(async () => {
+    if (session.turnId !== expectedTurn || !hasLamClient(sessionId)) return false;
+    try {
+      const audio1d = await decodeAudioToFloat32Mono(rawBuf, format, SAMPLE_RATE);
+      return await processAndEmit(session, audio1d, false, expectedTurn);
+    } catch (err) {
+      console.error(`[LAM] Failed to process in-process audio (${sessionId}):`, err);
+      return false;
+    }
+  });
+  session.workChain = task.catch(() => {});
+  return task;
 }
 
 export async function sendAvatarSpeechEnd(sessionId, speechId) {
@@ -416,7 +438,12 @@ export async function sendAvatarSpeechEnd(sessionId, speechId) {
     return true;
   }
   const expectedTurn = session.turnId;
-  return await processAndEmit(session, new Float32Array(0), true, expectedTurn);
+  const task = session.workChain.then(async () => {
+    if (session.turnId !== expectedTurn || !hasLamClient(sessionId)) return false;
+    return await processAndEmit(session, new Float32Array(0), true, expectedTurn);
+  });
+  session.workChain = task.catch(() => {});
+  return task;
 }
 
 export async function sendAvatarInterrupt(sessionId) {
