@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE } from "../utils/api";
-import { PcmPlayer, startPcmRecorder } from "../utils/humanPcmAudio";
+import { PcmPlayer, startPcmRecorder, startRingtone } from "../utils/humanPcmAudio";
 
 function buildHumanWsUrl(params) {
   const qs = new URLSearchParams(params).toString();
@@ -68,13 +68,13 @@ export function useHumanCall({
     if (recorderRef.current) {
       try {
         recorderRef.current.stop();
-      } catch {}
+      } catch { }
       recorderRef.current = null;
     }
     if (playerRef.current) {
       try {
         playerRef.current.reset();
-      } catch {}
+      } catch { }
       playerRef.current = null;
     }
     setMicLevel(0);
@@ -86,7 +86,7 @@ export function useHumanCall({
     }
     try {
       await playerRef.current.unlock(24000);
-    } catch {}
+    } catch { }
 
     if (recorderRef.current) return;
     try {
@@ -299,7 +299,7 @@ export function useHumanCall({
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       stopAudio();
       if (wsRef.current) {
-        try { wsRef.current.close(); } catch {}
+        try { wsRef.current.close(); } catch { }
         wsRef.current = null;
       }
     };
@@ -324,10 +324,10 @@ export function useHumanCall({
       if (!playerRef.current) {
         playerRef.current = new PcmPlayer();
       }
-      void playerRef.current.unlock(24000).catch(() => {});
+      void playerRef.current.unlock(24000).catch(() => { });
 
       if (wsRef.current) {
-        try { wsRef.current.close(); } catch {}
+        try { wsRef.current.close(); } catch { }
         wsRef.current = null;
       }
 
@@ -371,7 +371,7 @@ export function useHumanCall({
       if (!playerRef.current) {
         playerRef.current = new PcmPlayer();
       }
-      void playerRef.current.unlock(24000).catch(() => {});
+      void playerRef.current.unlock(24000).catch(() => { });
       const ws = wsRef.current;
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(
@@ -408,7 +408,7 @@ export function useHumanCall({
     }
     stopAudio();
     if (role === "customer" && ws) {
-      try { ws.close(); } catch {}
+      try { ws.close(); } catch { }
       wsRef.current = null;
     }
     setStatus("idle");
@@ -420,11 +420,18 @@ export function useHumanCall({
     setIsMuted((prev) => !prev);
   }, []);
 
+  // 呼叫振铃期间自动播放铃声（客户侧：回铃音；客服侧：来电提示音），接通/挂断立即停止
+  useEffect(() => {
+    if (status !== "ringing") return;
+    const ring = startRingtone(role === "agent" ? "incoming" : "outgoing");
+    return () => ring.stop();
+  }, [status, role]);
+
   useEffect(() => {
     return () => {
       stopAudio();
       if (wsRef.current) {
-        try { wsRef.current.close(); } catch {}
+        try { wsRef.current.close(); } catch { }
         wsRef.current = null;
       }
     };

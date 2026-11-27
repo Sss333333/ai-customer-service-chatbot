@@ -154,3 +154,80 @@ export class PcmPlayer {
     this.nextStartTime = 0;
   }
 }
+
+/**
+ * 纯 Web Audio 合成的呼叫铃声（零外部音频文件依赖）
+ * - mode === "outgoing"：客户侧柔和回铃音（440Hz + 480Hz 双音，1.0s 响 / 2.2s 停）
+ * - mode === "incoming"：人工客服侧清脆来电提示音（双音和弦脉冲，每 2.4s 响一次）
+ * @param {"outgoing" | "incoming"} mode
+ * @returns {{ stop: () => void }}
+ */
+export function startRingtone(mode = "outgoing") {
+  if (typeof window === "undefined") return { stop() {} };
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return { stop() {} };
+
+  let ctx;
+  try {
+    ctx = new AudioCtx();
+  } catch {
+    return { stop() {} };
+  }
+
+  let stopped = false;
+
+  const playTone = (freqs, startOffset, duration, peakGain = 0.07) => {
+    if (stopped || !ctx || ctx.state === "closed") return;
+    const now = ctx.currentTime + startOffset;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(peakGain, now + 0.025);
+    gain.gain.setValueAtTime(peakGain, Math.max(now + 0.025, now + duration - 0.04));
+    gain.gain.linearRampToValueAtTime(0.0001, now + duration);
+    gain.connect(ctx.destination);
+
+    for (const f of freqs) {
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(f, now);
+      osc.connect(gain);
+      osc.start(now);
+      osc.stop(now + duration + 0.01);
+    }
+  };
+
+  const triggerCycle = () => {
+    if (stopped || !ctx || ctx.state === "closed") return;
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+    if (mode === "incoming") {
+      // 客服来电：清脆双响提示音（G5 -> B5）
+      playTone([784], 0.0, 0.18, 0.08);
+      playTone([988], 0.2, 0.22, 0.08);
+      playTone([784], 0.52, 0.18, 0.08);
+      playTone([988], 0.72, 0.24, 0.08);
+    } else {
+      // 客户呼出：标准电话回铃音（440Hz + 480Hz）
+      playTone([440, 480], 0.0, 1.0, 0.055);
+    }
+  };
+
+  triggerCycle();
+  const intervalMs = mode === "incoming" ? 2400 : 3200;
+  const timer = window.setInterval(triggerCycle, intervalMs);
+
+  return {
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      window.clearInterval(timer);
+      if (ctx) {
+        try {
+          void ctx.close();
+        } catch {}
+        ctx = null;
+      }
+    },
+  };
+}
